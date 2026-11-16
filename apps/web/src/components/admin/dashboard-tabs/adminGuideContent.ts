@@ -145,13 +145,14 @@ export const adminGuideSections: GuideSection[] = [
   },
   {
     id: 'settings',
-    title: 'Settings & appearance',
+    title: 'Settings',
     icon: '⚙️',
-    summary: 'Personalize how the app looks on your device.',
-    tabId: 'settings',
+    summary: 'Profile, POS pricing, payments, and appearance live under Settings.',
+    tabId: 'settings-profile',
     steps: [
-      { text: 'Open Settings to switch between light and dark mode.' },
-      { text: 'Your theme choice is saved locally on this browser or device.' },
+      { text: 'Expand Settings in the sidebar to open Profile & store, POS & support, Payments, or Appearance.' },
+      { text: 'Use Profile & store for branding; POS & support for tax/discounts; Payments for Paystack; Appearance for theme.' },
+      { text: 'Theme choice is saved locally on this browser or device.' },
     ],
   },
   {

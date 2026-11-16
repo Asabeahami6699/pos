@@ -727,7 +727,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({
                       ) : (
                         <li>Removed stock will be returned to warehouse inventory</li>
                       )}
-                      <li>This action will be logged in the audit trail</li>
+                      <li>Record a clear reason — removals are tracked with the quantity and timestamp</li>
                       <li>Cannot be undone without manual intervention</li>
                     </ul>
                   </div>

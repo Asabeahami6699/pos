@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Shield } from 'lucide-react';
+import { api } from '../../lib/api';
 import { useTenantContextStore } from '../../stores/tenantContextStore';
 import { Button } from '../Button';
 
@@ -30,6 +31,16 @@ export const TenantContextBanner: React.FC = () => {
           variant="secondary"
           className="shrink-0 gap-1.5 border-amber-500/40"
           onClick={() => {
+            const tenant = actingTenant;
+            void api
+              .logTenantAccess({
+                company_id: tenant.id,
+                action: 'exit',
+                meta: { company_name: tenant.name },
+              })
+              .catch(() => {
+                /* audit best-effort */
+              });
             exitTenant();
             navigate('/super-admin/dashboard');
           }}

@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { Product, Branch, User } from '../../types';
 
-export type PendingSaleStatus = 'pending' | 'syncing' | 'failed' | 'synced';
+export type PendingSaleStatus = 'pending' | 'syncing' | 'failed' | 'synced' | 'conflict';
 
 export interface CatalogCacheRow {
   branchId: string;
@@ -38,6 +38,12 @@ class PosOfflineDB extends Dexie {
   constructor() {
     super('pos-inventory-offline');
     this.version(1).stores({
+      catalog: 'branchId',
+      session: 'id',
+      pendingSales: 'id, status, createdAt',
+    });
+    // v2 keeps same indexes; conflict status is stored in the status field
+    this.version(2).stores({
       catalog: 'branchId',
       session: 'id',
       pendingSales: 'id, status, createdAt',

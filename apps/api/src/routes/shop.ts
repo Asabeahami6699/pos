@@ -21,7 +21,7 @@ function db(supabase: ReturnType<typeof getSupabaseAdmin>) {
 }
 
 const PRODUCT_CORE_SELECT =
-  'id, name, sku, price, wholesale_price, category, company_id, low_stock_threshold';
+  'id, name, sku, price, category, company_id, low_stock_threshold';
 
 const PRODUCT_COLUMN_CANDIDATES = [
   `${PRODUCT_CORE_SELECT}, description, image_url, is_online_listing, marketplace_listing`,
@@ -48,7 +48,6 @@ type ShopProductRow = {
   name: string;
   sku: string | null;
   price: number;
-  wholesale_price: number | null;
   category: string | null;
   company_id: string | null;
   low_stock_threshold: number | null;
@@ -158,7 +157,6 @@ function normalizeProductRow(row: Record<string, unknown>): ShopProductRow {
     name: row.name as string,
     sku: (row.sku as string | null) ?? null,
     price: row.price as number,
-    wholesale_price: (row.wholesale_price as number | null) ?? null,
     category: (row.category as string | null) ?? null,
     company_id: (row.company_id as string | null) ?? null,
     low_stock_threshold: (row.low_stock_threshold as number | null) ?? null,
@@ -177,15 +175,19 @@ async function fetchShopProducts(
     companyIds?: string[];
     productId?: string;
     single?: boolean;
+    /** Public marketplace only — defaults true */
+    listedOnly?: boolean;
   },
 ): Promise<ShopProductRow | ShopProductRow[]> {
   const PAGE_SIZE = 1000;
+  const listedOnly = filter.listedOnly !== false;
 
   const buildQuery = (columns: string, range?: { from: number; to: number }) => {
     let query = db(supabase).from('products').select(columns);
     if (filter.companyId) query = query.eq('company_id', filter.companyId);
     if (filter.companyIds?.length) query = query.in('company_id', filter.companyIds);
     if (filter.productId) query = query.eq('id', filter.productId);
+    if (listedOnly) query = query.eq('is_online_listing', true);
     if (filter.single) return query.single();
     query = query.order('name');
     if (range) query = query.range(range.from, range.to);
@@ -222,6 +224,15 @@ async function fetchShopProducts(
   for (const columns of PRODUCT_COLUMN_CANDIDATES) {
     result = await fetchColumns(columns);
     if (!result.error) break;
+    // Column may be missing from SELECT *or* from the listedOnly filter
+    if (
+      isMissingColumnError(result.error, 'is_online_listing') &&
+      listedOnly
+    ) {
+      // Retry once without marketplace gate if migration not applied yet
+      const ungated = await fetchShopProducts(supabase, { ...filter, listedOnly: false });
+      return ungated;
+    }
     if (!isOptionalProductColumnError(result.error)) {
       break;
     }
@@ -248,10 +259,19 @@ shopRouter.get('/companies', async (_req, res) => {
     const companies = data ?? [];
     const withCounts = await Promise.all(
       companies.map(async (company: { id: string }) => {
-        const { count } = await supabase
+        let countQuery = supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
-          .eq('company_id', company.id);
+          .eq('company_id', company.id)
+          .eq('is_online_listing', true);
+        let { count, error: countError } = await countQuery;
+        if (countError && isMissingColumnError(countError, 'is_online_listing')) {
+          const fallback = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('company_id', company.id);
+          count = fallback.count;
+        }
         return { ...company, product_count: count ?? 0 };
       }),
     );

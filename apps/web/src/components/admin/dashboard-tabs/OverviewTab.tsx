@@ -256,7 +256,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             <p className="text-sm font-semibold capitalize truncate">
               {payoutSettings?.paystack_subaccount_status ?? 'not connected'}
             </p>
-            <button type="button" className="text-[10px] text-primary mt-0.5" onClick={() => setActiveTab('settings')}>
+            <button type="button" className="text-[10px] text-primary mt-0.5" onClick={() => setActiveTab('settings-profile')}>
               Manage in settings →
             </button>
           </div>

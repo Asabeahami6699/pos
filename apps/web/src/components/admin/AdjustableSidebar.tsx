@@ -12,6 +12,7 @@ import {
   BookOpen,
   Settings,
   LogOut,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MessageCircle,
@@ -19,7 +20,11 @@ import {
   X,
   BarChart3,
   PieChart,
-  ShoppingBag
+  ShoppingBag,
+  User,
+  Percent,
+  Wallet,
+  Palette,
 } from 'lucide-react';
 
 interface AdjustableSidebarProps {
@@ -31,6 +36,19 @@ interface AdjustableSidebarProps {
   userName?: string;
   userRole?: string;
   inventoryModel?: 'warehouse' | 'branch_only';
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}
+
+const SETTINGS_CHILDREN = [
+  { id: 'settings-profile', label: 'Profile & store', icon: User },
+  { id: 'settings-pos', label: 'POS & support', icon: Percent },
+  { id: 'settings-payments', label: 'Payments', icon: Wallet },
+  { id: 'settings-appearance', label: 'Appearance', icon: Palette },
+] as const;
+
+function isSettingsTab(tab: string) {
+  return tab === 'settings' || tab.startsWith('settings-');
 }
 
 export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
@@ -46,6 +64,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [isResizing, setIsResizing] = useState(false);
   const [showExpandHint, setShowExpandHint] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => isSettingsTab(activeTab));
   const sidebarRef = useRef<HTMLDivElement>(null);
 
   const minWidth = 168;
@@ -58,6 +77,11 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
     icon: React.ComponentType<{ className?: string }>;
     tourId?: string;
     group: 'main' | 'setup' | 'operations' | 'insights';
+    children?: Array<{
+      id: string;
+      label: string;
+      icon: React.ComponentType<{ className?: string }>;
+    }>;
   };
 
   const menuItems: MenuItem[] = [
@@ -76,8 +100,18 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
     { id: 'price-history', label: 'Price History', icon: TrendingUp, group: 'insights' },
     { id: 'notifications', label: 'Notifications', icon: Bell, group: 'insights' },
     { id: 'guide', label: 'User Guide', icon: BookOpen, tourId: 'admin-guide', group: 'insights' },
-    { id: 'settings', label: 'Settings', icon: Settings, group: 'insights' },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings,
+      group: 'insights',
+      children: [...SETTINGS_CHILDREN],
+    },
   ];
+
+  useEffect(() => {
+    if (isSettingsTab(activeTab)) setSettingsOpen(true);
+  }, [activeTab]);
 
   const groups: Array<{ id: MenuItem['group']; label: string }> = [
     { id: 'main', label: '' },
@@ -193,13 +227,28 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const getItemClasses = (itemId: string) => {
+  const isItemActive = (itemId: string, children?: MenuItem['children']) => {
+    if (activeTab === itemId) return true;
+    if (itemId === 'settings' && isSettingsTab(activeTab)) return true;
+    return Boolean(children?.some((child) => child.id === activeTab));
+  };
+
+  const getItemClasses = (itemId: string, children?: MenuItem['children']) => {
     const baseClasses = 'flex items-center rounded-lg transition-all duration-200 cursor-pointer w-full';
     const activeClasses = 'bg-primary/10 text-primary font-semibold shadow-sm';
     const inactiveClasses = 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground';
 
-    return `${baseClasses} ${activeTab === itemId ? activeClasses : inactiveClasses} ${
+    return `${baseClasses} ${isItemActive(itemId, children) ? activeClasses : inactiveClasses} ${
       isCollapsed ? 'justify-center p-2.5' : 'px-3 py-2'
+    }`;
+  };
+
+  const getChildClasses = (itemId: string) => {
+    const active = activeTab === itemId;
+    return `flex items-center w-full rounded-lg px-3 py-1.5 text-left text-[13px] transition-colors ${
+      active
+        ? 'bg-primary/10 text-primary font-semibold'
+        : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'
     }`;
   };
 
@@ -326,30 +375,82 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
                   </p>
                 ) : null}
                 <ul className="space-y-0.5">
-                  {items.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        data-tour={item.tourId}
-                        onClick={() => {
-                          onTabChange(item.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={getItemClasses(item.id)}
-                        title={isCollapsed ? item.label : ''}
-                      >
-                        {getItemIcon(item.icon)}
-                        {!isCollapsed && (
-                          <span className="font-medium flex-1 text-left text-sm">{item.label}</span>
+                  {items.map((item) => {
+                    const hasChildren = Boolean(item.children?.length);
+                    const showChildren = hasChildren && settingsOpen && !isCollapsed;
+
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          data-tour={item.tourId}
+                          onClick={() => {
+                            if (hasChildren) {
+                              if (isCollapsed) {
+                                onTabChange(item.children![0].id);
+                                setSettingsOpen(true);
+                                setIsMobileMenuOpen(false);
+                                return;
+                              }
+                              if (!settingsOpen) {
+                                setSettingsOpen(true);
+                                if (!isSettingsTab(activeTab)) {
+                                  onTabChange(item.children![0].id);
+                                }
+                              } else if (!isSettingsTab(activeTab)) {
+                                onTabChange(item.children![0].id);
+                              } else {
+                                setSettingsOpen(false);
+                              }
+                              return;
+                            }
+                            onTabChange(item.id);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={getItemClasses(item.id, item.children)}
+                          title={isCollapsed ? item.label : ''}
+                          aria-expanded={hasChildren ? settingsOpen : undefined}
+                        >
+                          {getItemIcon(item.icon)}
+                          {!isCollapsed && (
+                            <span className="font-medium flex-1 text-left text-sm">{item.label}</span>
+                          )}
+                          {!isCollapsed && item.id === 'notifications' && notificationCount > 0 && (
+                            <span className="ml-auto bg-destructive/10 text-destructive text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
+                              {notificationCount > 99 ? '99+' : notificationCount}
+                            </span>
+                          )}
+                          {!isCollapsed && hasChildren && (
+                            <ChevronDown
+                              className={`w-4 h-4 shrink-0 opacity-60 transition-transform ${
+                                settingsOpen ? 'rotate-180' : ''
+                              }`}
+                            />
+                          )}
+                        </button>
+
+                        {showChildren && (
+                          <ul className="mt-0.5 mb-1 ml-3 pl-3 border-l border-border space-y-0.5">
+                            {item.children!.map((child) => (
+                              <li key={child.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onTabChange(child.id);
+                                    setIsMobileMenuOpen(false);
+                                  }}
+                                  className={getChildClasses(child.id)}
+                                >
+                                  <child.icon className="w-3.5 h-3.5 mr-2 shrink-0" />
+                                  <span className="truncate">{child.label}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
                         )}
-                        {!isCollapsed && item.id === 'notifications' && notificationCount > 0 && (
-                          <span className="ml-auto bg-destructive/10 text-destructive text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
-                            {notificationCount > 99 ? '99+' : notificationCount}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             );

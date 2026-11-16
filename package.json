@@ -15,7 +15,9 @@
     "build:web": "npm run build --workspace=@pos-inventory/web",
     "build:api": "npm run build --workspace=@pos-inventory/api",
     "gen:types": "npm run gen:types --workspace=@pos-inventory/shared",
-    "lint": "npm run lint --workspace=@pos-inventory/web"
+    "lint": "npm run lint --workspace=@pos-inventory/web",
+    "test": "npm run test --workspace=@pos-inventory/api",
+    "test:api": "npm run test --workspace=@pos-inventory/api"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

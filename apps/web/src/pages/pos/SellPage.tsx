@@ -182,7 +182,7 @@ const SellPage: React.FC = () => {
     lookupByScanCode,
   } = useProducts(selectedBranch, salesType);
 
-  const { online, pendingCount, syncing, refreshPendingCount, runSync } = useOfflineSync();
+  const { online, pendingCount, conflictCount, syncing, refreshPendingCount, runSync } = useOfflineSync();
 
   const {
     sales,
@@ -834,6 +834,7 @@ const SellPage: React.FC = () => {
         <OfflineStatusBanner
           online={online}
           pendingCount={pendingCount}
+          conflictCount={conflictCount}
           syncing={syncing}
           onSync={() => void runSync()}
         />

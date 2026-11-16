@@ -75,6 +75,17 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
 
         req.companyId = actingId;
         req.actingAsCompanyId = actingId;
+
+        // Audit mutating impersonated API calls (enter/exit logged separately)
+        const method = req.method.toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+          void dbInsertTenantAccessLog(supabase, {
+            actor_user_id: user.id,
+            company_id: actingId,
+            action: 'api',
+            path: `${method} ${req.originalUrl.split('?')[0]}`,
+          });
+        }
       }
     }
 
@@ -84,6 +95,26 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       success: false,
       error: error instanceof Error ? error.message : 'Authentication failed',
     });
+  }
+}
+
+async function dbInsertTenantAccessLog(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  row: {
+    actor_user_id: string;
+    company_id: string;
+    action: 'enter' | 'exit' | 'api';
+    path: string;
+  },
+) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('tenant_access_logs').insert({
+      ...row,
+      meta: {},
+    });
+  } catch {
+    // Never block the request on audit failure
   }
 }
 

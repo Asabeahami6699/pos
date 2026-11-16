@@ -24,8 +24,15 @@ import { CompanyProfileModal } from '../CompanyProfileModal';
 import { api, type CompanySettings } from '../../../lib/api';
 import { toast } from 'sonner';
 
+export type SettingsSectionId =
+  | 'settings-profile'
+  | 'settings-pos'
+  | 'settings-payments'
+  | 'settings-appearance';
+
 interface SettingsTabProps {
   companyId?: string;
+  section?: SettingsSectionId | 'settings';
   onOpenGuide?: () => void;
   onReplayTour?: () => void;
   onInventoryModelChange?: (model: 'warehouse' | 'branch_only') => void;
@@ -60,12 +67,43 @@ function SettingsSection({
   );
 }
 
+const SECTION_META: Record<
+  SettingsSectionId,
+  { title: string; subtitle: string }
+> = {
+  'settings-profile': {
+    title: 'Profile & store',
+    subtitle: 'Admin details and marketplace branding',
+  },
+  'settings-pos': {
+    title: 'POS & support',
+    subtitle: 'Tax, discounts, and cashier help contacts',
+  },
+  'settings-payments': {
+    title: 'Payments',
+    subtitle: 'Paystack payout account for online orders',
+  },
+  'settings-appearance': {
+    title: 'Appearance & help',
+    subtitle: 'Theme preferences and walkthroughs',
+  },
+};
+
+function resolveSection(section?: SettingsSectionId | 'settings'): SettingsSectionId {
+  if (!section || section === 'settings') return 'settings-profile';
+  return section;
+}
+
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   companyId,
+  section = 'settings-profile',
   onOpenGuide,
   onReplayTour,
   onInventoryModelChange,
 }) => {
+  const activeSection = resolveSection(section);
+  const meta = SECTION_META[activeSection];
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profile, setProfile] = useState<CompanySettings | null>(null);
@@ -102,8 +140,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   }, [companyId, applyPosFields]);
 
   useEffect(() => {
-    loadProfileSummary();
-  }, [loadProfileSummary]);
+    if (
+      activeSection === 'settings-profile' ||
+      activeSection === 'settings-pos'
+    ) {
+      void loadProfileSummary();
+    }
+  }, [loadProfileSummary, activeSection]);
 
   const handleProfileSaved = (data: CompanySettings) => {
     setProfile(data);
@@ -158,97 +201,88 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <DashboardHeader
-        title="Settings"
-        subtitle="Manage your account, marketplace store, payouts, and preferences"
-      />
+      <DashboardHeader title={meta.title} subtitle={meta.subtitle} />
 
-      {/* Account & marketplace */}
-      {companyId && (
+      {activeSection === 'settings-profile' && companyId && (
         <>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-              Account & marketplace
-            </h3>
-            <SettingsSection
-              icon={<User className="w-4 h-4" />}
-              iconClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
-              title="Profile & store branding"
-              description="Your admin details and how your store appears on the marketplace."
-            >
-              {profileLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading…
-                </div>
-              ) : profile ? (
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-3 rounded-xl bg-secondary/40 border border-border">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {profile.company.logo_url ? (
-                        <img
-                          src={profile.company.logo_url}
-                          alt=""
-                          className="w-12 h-12 rounded-xl object-cover border border-border shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                          <Building2 className="w-5 h-5 text-primary" />
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {profile.company.name || 'Your store'}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {profile.user.full_name}
-                          {profile.user.email ? ` · ${profile.user.email}` : ''}
-                        </p>
-                        {profile.company.location && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                            <MapPin className="w-3 h-3 shrink-0" />
-                            {profile.company.location}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {profile.company.banner_url && (
-                      <div className="h-14 w-full sm:w-40 rounded-lg overflow-hidden border border-border shrink-0">
-                        <img
-                          src={profile.company.banner_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
+          <SettingsSection
+            icon={<User className="w-4 h-4" />}
+            iconClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+            title="Profile & store branding"
+            description="Your admin details and how your store appears on the marketplace."
+          >
+            {profileLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading…
+              </div>
+            ) : profile ? (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-3 rounded-xl bg-secondary/40 border border-border">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {profile.company.logo_url ? (
+                      <img
+                        src={profile.company.logo_url}
+                        alt=""
+                        className="w-12 h-12 rounded-xl object-cover border border-border shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                        <Building2 className="w-5 h-5 text-primary" />
                       </div>
                     )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {profile.company.name || 'Your store'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {profile.user.full_name}
+                        {profile.user.email ? ` · ${profile.user.email}` : ''}
+                      </p>
+                      {profile.company.location && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          {profile.company.location}
+                        </p>
+                      )}
+                    </div>
                   </div>
-
-                  <ul className="text-xs text-muted-foreground space-y-1.5">
-                    <li className="flex items-center gap-2">
-                      <Store className="w-3.5 h-3.5 shrink-0" />
-                      Logo and banner show on marketplace store pages
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 shrink-0" />
-                      Update your name, phone, and address anytime
-                    </li>
-                  </ul>
-
-                  <Button type="button" onClick={() => setProfileOpen(true)} className="w-full sm:w-auto">
-                    <Pencil className="w-4 h-4 mr-1.5" />
-                    Edit profile & store
-                  </Button>
+                  {profile.company.banner_url && (
+                    <div className="h-14 w-full sm:w-40 rounded-lg overflow-hidden border border-border shrink-0">
+                      <img
+                        src={profile.company.banner_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Could not load profile. Try again.</p>
-                  <Button type="button" variant="secondary" size="sm" onClick={loadProfileSummary}>
-                    Retry
-                  </Button>
-                </div>
-              )}
-            </SettingsSection>
-          </div>
+
+                <ul className="text-xs text-muted-foreground space-y-1.5">
+                  <li className="flex items-center gap-2">
+                    <Store className="w-3.5 h-3.5 shrink-0" />
+                    Logo and banner show on marketplace store pages
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    Update your name, phone, and address anytime
+                  </li>
+                </ul>
+
+                <Button type="button" onClick={() => setProfileOpen(true)} className="w-full sm:w-auto">
+                  <Pencil className="w-4 h-4 mr-1.5" />
+                  Edit profile & store
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Could not load profile. Try again.</p>
+                <Button type="button" variant="secondary" size="sm" onClick={loadProfileSummary}>
+                  Retry
+                </Button>
+              </div>
+            )}
+          </SettingsSection>
 
           <CompanyProfileModal
             isOpen={profileOpen}
@@ -259,13 +293,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </>
       )}
 
-      {/* POS pricing & support */}
-      {companyId && (
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
-            <Percent className="w-3.5 h-3.5" />
-            POS pricing & support
-          </h3>
+      {activeSection === 'settings-pos' && companyId && (
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <SettingsSection
               icon={<Percent className="w-4 h-4" />}
@@ -353,37 +382,30 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </SettingsSection>
           </div>
           {!profileLoading && (
-            <div className="mt-3">
-              <Button
-                type="button"
-                onClick={() => void handleSavePosSettings()}
-                loading={posSaving}
-                className="w-full sm:w-auto"
-              >
-                <Save className="w-4 h-4 mr-1.5" />
-                Save POS & support
-              </Button>
-            </div>
+            <Button
+              type="button"
+              onClick={() => void handleSavePosSettings()}
+              loading={posSaving}
+              className="w-full sm:w-auto"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              Save POS & support
+            </Button>
           )}
         </div>
       )}
 
-      {/* Payments */}
-      {companyId && (
+      {activeSection === 'settings-payments' && companyId && (
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
+          <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <Wallet className="w-3.5 h-3.5" />
-            Payments
-          </h3>
+            Paystack payouts
+          </div>
           <PaystackPayoutSettings companyId={companyId} />
         </div>
       )}
 
-      {/* Preferences */}
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          Preferences
-        </h3>
+      {activeSection === 'settings-appearance' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SettingsSection
             icon={<Palette className="w-4 h-4" />}
@@ -407,12 +429,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             >
               <div className="flex flex-wrap gap-2">
                 {onOpenGuide && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={onOpenGuide}
-                    className="group"
-                  >
+                  <Button variant="secondary" size="sm" onClick={onOpenGuide} className="group">
                     Open user guide
                     <ChevronRight className="w-4 h-4 ml-1 opacity-60 group-hover:translate-x-0.5 transition-transform" />
                   </Button>
@@ -426,7 +443,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </SettingsSection>
           )}
         </div>
-      </div>
+      )}
+
+      {!companyId && activeSection !== 'settings-appearance' && (
+        <div className="glass-card p-6 text-sm text-muted-foreground">
+          Select a company context to manage this settings section.
+        </div>
+      )}
     </div>
   );
 };

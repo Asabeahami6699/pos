@@ -39,6 +39,23 @@ function formatApiError(data: unknown): string {
   return 'Request failed';
 }
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  body?: unknown;
+
+  constructor(message: string, status: number, body?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+    if (body && typeof body === 'object' && 'code' in body) {
+      const code = (body as { code?: unknown }).code;
+      if (typeof code === 'string') this.code = code;
+    }
+  }
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE}${path}`, {
@@ -54,11 +71,14 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   try {
     data = await response.json();
   } catch {
-    throw new Error(response.ok ? 'Invalid server response' : `Request failed (${response.status})`);
+    throw new ApiError(
+      response.ok ? 'Invalid server response' : `Request failed (${response.status})`,
+      response.status,
+    );
   }
 
   if (!response.ok) {
-    throw new Error(formatApiError(data));
+    throw new ApiError(formatApiError(data), response.status, data);
   }
 
   return data as T;
@@ -116,6 +136,16 @@ export const api = {
     apiFetch<{ success: boolean; data: Record<string, unknown>; idempotent?: boolean }>(
       '/api/sales',
       { method: 'POST', body: JSON.stringify(payload) }
+    ),
+
+  logTenantAccess: (payload: {
+    company_id: string;
+    action: 'enter' | 'exit';
+    meta?: Record<string, unknown>;
+  }) =>
+    apiFetch<{ success: boolean; data?: { id: string; created_at: string } }>(
+      '/api/super-admin/tenant-access',
+      { method: 'POST', body: JSON.stringify(payload) },
     ),
 
   createReturn: (payload: {

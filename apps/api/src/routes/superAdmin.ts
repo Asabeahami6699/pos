@@ -32,6 +32,85 @@ export const superAdminRouter = Router();
 
 superAdminRouter.use(requireAuth, requireRole('super_admin'));
 
+const tenantAccessSchema = z.object({
+  company_id: z.string().uuid(),
+  action: z.enum(['enter', 'exit']),
+  meta: z.record(z.unknown()).optional(),
+});
+
+/** Audit enter/exit of super-admin tenant impersonation */
+superAdminRouter.post('/tenant-access', async (req: AuthenticatedRequest, res) => {
+  const parsed = tenantAccessSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, error: 'Invalid tenant access payload' });
+  }
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const { company_id, action, meta } = parsed.data;
+
+    const { data: company, error: companyError } = await db(supabase)
+      .from('companies')
+      .select('id, name')
+      .eq('id', company_id)
+      .maybeSingle();
+
+    if (companyError || !company) {
+      return res.status(404).json({ success: false, error: 'Company not found' });
+    }
+
+    const { data, error } = await db(supabase)
+      .from('tenant_access_logs')
+      .insert({
+        actor_user_id: req.userId,
+        company_id,
+        action,
+        path: req.path,
+        meta: {
+          company_name: company.name,
+          ...(meta ?? {}),
+        },
+      })
+      .select('id, created_at')
+      .single();
+
+    if (error) throw error;
+
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: getErrorMessage(error, 'Failed to record tenant access'),
+    });
+  }
+});
+
+superAdminRouter.get('/tenant-access', async (req: AuthenticatedRequest, res) => {
+  try {
+    const supabase = getSupabaseAdmin();
+    const companyId = typeof req.query.company_id === 'string' ? req.query.company_id : null;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+    let query = db(supabase)
+      .from('tenant_access_logs')
+      .select('id, actor_user_id, company_id, action, path, meta, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (companyId) query = query.eq('company_id', companyId);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return res.json({ success: true, data: data ?? [] });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: getErrorMessage(error, 'Failed to load tenant access logs'),
+    });
+  }
+});
+
 superAdminRouter.get('/overview', async (_req, res) => {
   try {
     const supabase = getSupabaseAdmin();

@@ -1,5 +1,5 @@
 // src/components/ProtectedRoute.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { STAFF_AUTH_PATH } from '../lib/roleRedirect';
@@ -10,52 +10,67 @@ interface ProtectedRouteProps {
   allowedRoles: UserRole[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  allowedRoles 
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  allowedRoles,
 }) => {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
+  const resolveAccess = useCallback(
+    async (userId: string | undefined) => {
+      if (!userId) {
+        setAuthorized(false);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', userId)
+          .single();
+
+        if (error || !userData) {
+          setAuthorized(false);
+        } else {
+          setAuthorized(allowedRoles.includes(userData.role as UserRole));
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setAuthorized(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [allowedRoles],
+  );
+
   useEffect(() => {
-    checkAuth();
-  }, []);
+    let mounted = true;
 
-  const checkAuth = async () => {
-    try {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setAuthorized(false);
-        setLoading(false);
-        return;
-      }
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!mounted) return;
+      await resolveAccess(session?.user?.id);
+    })();
 
-      // Get user role from database
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setLoading(true);
+      void resolveAccess(session?.user?.id);
+    });
 
-      if (error || !userData) {
-        setAuthorized(false);
-        setLoading(false);
-        return;
-      }
-
-      // Check if user's role is allowed
-      const hasPermission = allowedRoles.includes(userData.role as UserRole);
-      setAuthorized(hasPermission);
-      setLoading(false);
-
-    } catch (error) {
-      console.error('Auth check error:', error);
-      setAuthorized(false);
-      setLoading(false);
-    }
-  };
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [resolveAccess]);
 
   if (loading) {
     return (

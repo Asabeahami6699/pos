@@ -25,6 +25,7 @@ export async function savePendingSale(id: string, payload: SalePayload): Promise
   await offlineDb.pendingSales.put(row);
 }
 
+/** Sales that should auto-retry on sync */
 export async function getPendingSales(): Promise<PendingSaleRow[]> {
   return offlineDb.pendingSales
     .where('status')
@@ -32,10 +33,14 @@ export async function getPendingSales(): Promise<PendingSaleRow[]> {
     .sortBy('createdAt');
 }
 
+export async function getConflictSales(): Promise<PendingSaleRow[]> {
+  return offlineDb.pendingSales.where('status').equals('conflict').sortBy('createdAt');
+}
+
 export async function getPendingSaleCount(): Promise<number> {
   return offlineDb.pendingSales
     .where('status')
-    .anyOf(['pending', 'failed'])
+    .anyOf(['pending', 'failed', 'conflict'])
     .count();
 }
 
@@ -54,6 +59,27 @@ export async function markSaleFailed(id: string, error: string): Promise<void> {
     syncError: error,
     attempts: (row?.attempts ?? 0) + 1,
   });
+}
+
+export async function markSaleConflict(id: string, error: string): Promise<void> {
+  const row = await offlineDb.pendingSales.get(id);
+  await offlineDb.pendingSales.update(id, {
+    status: 'conflict',
+    syncError: error,
+    attempts: (row?.attempts ?? 0) + 1,
+  });
+}
+
+/** Allow cashier to retry a stock-conflict sale after adjusting inventory */
+export async function requeueConflictSale(id: string): Promise<void> {
+  await offlineDb.pendingSales.update(id, {
+    status: 'pending',
+    syncError: undefined,
+  });
+}
+
+export async function voidPendingSale(id: string): Promise<void> {
+  await offlineDb.pendingSales.delete(id);
 }
 
 export function parseSalePayload(row: PendingSaleRow): SalePayload {

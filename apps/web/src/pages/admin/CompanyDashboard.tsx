@@ -78,6 +78,10 @@ type ActiveTab =
   | 'notifications'
   | 'analytics'
   | 'settings'
+  | 'settings-profile'
+  | 'settings-pos'
+  | 'settings-payments'
+  | 'settings-appearance'
   | 'guide';
 
 const CompanyDashboard: React.FC = () => {
@@ -976,9 +980,16 @@ const CompanyDashboard: React.FC = () => {
             />
           )}
 
-          {activeTab === 'settings' && (
+          {(activeTab === 'settings' ||
+            activeTab === 'settings-profile' ||
+            activeTab === 'settings-pos' ||
+            activeTab === 'settings-payments' ||
+            activeTab === 'settings-appearance') && (
             <SettingsTab
               companyId={companyId}
+              section={
+                activeTab === 'settings' ? 'settings-profile' : activeTab
+              }
               onOpenGuide={() => setActiveTab('guide')}
               onReplayTour={() => {
                 resetAudience('admin');
