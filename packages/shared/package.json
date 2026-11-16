@@ -1,0 +1,22 @@
+{
+  "name": "@pos-inventory/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "gen:types": "npx supabase gen types typescript --linked > src/database.types.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

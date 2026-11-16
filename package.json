@@ -1,0 +1,23 @@
+{
+  "name": "pos-inventory",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@pos-inventory/web",
+    "dev:web": "npm run dev --workspace=@pos-inventory/web",
+    "dev:api": "npm run dev --workspace=@pos-inventory/api",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "build": "npm run build --workspace=@pos-inventory/shared && npm run build --workspace=@pos-inventory/api && npm run build --workspace=@pos-inventory/web",
+    "build:web": "npm run build --workspace=@pos-inventory/web",
+    "build:api": "npm run build --workspace=@pos-inventory/api",
+    "gen:types": "npm run gen:types --workspace=@pos-inventory/shared",
+    "lint": "npm run lint --workspace=@pos-inventory/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
