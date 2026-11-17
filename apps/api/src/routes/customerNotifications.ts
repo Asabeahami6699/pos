@@ -100,3 +100,103 @@ customerNotificationsRouter.delete('/push/subscribe', requireAuth, async (req: A
     return res.status(500).json({ success: false, error: getErrorMessage(error, 'Unsubscribe failed') });
   }
 });
+
+/** In-app marketplace notifications (order updates, returns, chat) */
+customerNotificationsRouter.get('/notifications', requireAuth, async (req: AuthenticatedRequest, res) => {
+  if (!requireCustomer(req, res)) return;
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await db(supabase)
+      .from('customer_notifications')
+      .select('*')
+      .eq('customer_id', req.userId!)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      if (String(error.message || '').includes('customer_notifications')) {
+        return res.json({ success: true, data: [] });
+      }
+      throw error;
+    }
+    return res.json({ success: true, data: data ?? [] });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: getErrorMessage(error, 'Failed to load notifications'),
+    });
+  }
+});
+
+customerNotificationsRouter.get(
+  '/notifications/unread-count',
+  requireAuth,
+  async (req: AuthenticatedRequest, res) => {
+    if (!requireCustomer(req, res)) return;
+    try {
+      const supabase = getSupabaseAdmin();
+      const { count, error } = await db(supabase)
+        .from('customer_notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('customer_id', req.userId!)
+        .eq('read', false);
+      if (error) {
+        if (String(error.message || '').includes('customer_notifications')) {
+          return res.json({ success: true, data: { count: 0 } });
+        }
+        throw error;
+      }
+      return res.json({ success: true, data: { count: count ?? 0 } });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: getErrorMessage(error, 'Failed to count notifications'),
+      });
+    }
+  },
+);
+
+customerNotificationsRouter.patch(
+  '/notifications/:id/read',
+  requireAuth,
+  async (req: AuthenticatedRequest, res) => {
+    if (!requireCustomer(req, res)) return;
+    try {
+      const supabase = getSupabaseAdmin();
+      const { error } = await db(supabase)
+        .from('customer_notifications')
+        .update({ read: true })
+        .eq('id', req.params.id)
+        .eq('customer_id', req.userId!);
+      if (error) throw error;
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: getErrorMessage(error, 'Failed to mark notification read'),
+      });
+    }
+  },
+);
+
+customerNotificationsRouter.post(
+  '/notifications/read-all',
+  requireAuth,
+  async (req: AuthenticatedRequest, res) => {
+    if (!requireCustomer(req, res)) return;
+    try {
+      const supabase = getSupabaseAdmin();
+      const { error } = await db(supabase)
+        .from('customer_notifications')
+        .update({ read: true })
+        .eq('customer_id', req.userId!)
+        .eq('read', false);
+      if (error) throw error;
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: getErrorMessage(error, 'Failed to mark all read'),
+      });
+    }
+  },
+);

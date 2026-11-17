@@ -33,6 +33,7 @@ interface AdjustableSidebarProps {
   onLogout: () => void;
   companyName?: string;
   notificationCount?: number;
+  onlineOrderCount?: number;
   userName?: string;
   userRole?: string;
   inventoryModel?: 'warehouse' | 'branch_only';
@@ -57,6 +58,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
   onLogout,
   companyName = 'Company Admin',
   notificationCount = 0,
+  onlineOrderCount = 0,
   inventoryModel = 'warehouse',
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -145,7 +147,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
 
   // Show expand hint when sidebar is collapsed for more than 3 seconds
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     
     if (isCollapsed) {
       timer = setTimeout(() => {
@@ -162,7 +164,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
 
   // Hide expand hint after 5 seconds
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     
     if (showExpandHint) {
       timer = setTimeout(() => {
@@ -267,7 +269,9 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 glass-card"
+        className="md:hidden fixed z-50 p-2.5 glass-card rounded-xl shadow-md"
+        style={{ top: 'calc(0.75rem + var(--safe-top))', left: 'calc(0.75rem + var(--safe-left))' }}
+        aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
       >
         {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
@@ -418,6 +422,11 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
                           {!isCollapsed && item.id === 'notifications' && notificationCount > 0 && (
                             <span className="ml-auto bg-destructive/10 text-destructive text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
                               {notificationCount > 99 ? '99+' : notificationCount}
+                            </span>
+                          )}
+                          {!isCollapsed && item.id === 'online-orders' && onlineOrderCount > 0 && (
+                            <span className="ml-auto bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
+                              {onlineOrderCount > 99 ? '99+' : onlineOrderCount}
                             </span>
                           )}
                           {!isCollapsed && hasChildren && (

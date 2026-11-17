@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ShoppingBag, Sparkles, Minus, Plus, ArrowRight, Heart } from 'lucide-react';
 import {
   groupCartItemsByCompany,
@@ -13,9 +13,11 @@ import { ProductImage } from '../../components/shop/ProductImage';
 import { ShopProductCard } from '../../components/shop/ShopProductCard';
 import { WishlistButton } from '../../components/shop/WishlistButton';
 import { shopRoutes } from '../../lib/roleRedirect';
+import { customerAuthPaths, isSignedInCustomer } from '../../lib/requireCustomerAuth';
 import { toast } from 'sonner';
 
 export const CartPage: React.FC = () => {
+  const navigate = useNavigate();
   const items = useEcommerceCartStore((s) => s.items);
   const updateQuantity = useEcommerceCartStore((s) => s.updateQuantity);
   const removeItem = useEcommerceCartStore((s) => s.removeItem);
@@ -27,11 +29,34 @@ export const CartPage: React.FC = () => {
     () => groupCartRecommendations(items, marketplaceProducts),
     [items, marketplaceProducts],
   );
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const itemCount = items.reduce((s, i) => s + i.quantity, 0);
   const shipping = 0;
   const tax = 0;
   const total = totalAmount + shipping + tax;
+
+  const handleCheckout = async () => {
+    setCheckingOut(true);
+    try {
+      const ok = await isSignedInCustomer();
+      if (!ok) {
+        const { login } = customerAuthPaths(shopRoutes.checkout);
+        toast.error('Sign in required', {
+          description: 'Create an account or sign in before you can buy.',
+          action: {
+            label: 'Sign in',
+            onClick: () => navigate(login),
+          },
+        });
+        navigate(login);
+        return;
+      }
+      navigate(shopRoutes.checkout);
+    } finally {
+      setCheckingOut(false);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -236,12 +261,16 @@ export const CartPage: React.FC = () => {
             </div>
           </div>
 
-          <Link to={shopRoutes.checkout} className="block">
-            <Button fullWidth size="lg" className="!rounded-xl gap-2">
-              Checkout
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          </Link>
+          <Button
+            fullWidth
+            size="lg"
+            className="!rounded-xl gap-2"
+            loading={checkingOut}
+            onClick={() => void handleCheckout()}
+          >
+            Checkout
+            <ArrowRight className="w-4 h-4" />
+          </Button>
           <Link
             to={shopRoutes.home}
             className="block text-center text-sm font-medium text-muted-foreground hover:text-primary"

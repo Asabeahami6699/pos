@@ -16,7 +16,9 @@ import {
 import { shopRoutes, STAFF_LOGIN_PATH } from '../../lib/roleRedirect';
 import { ShopChatWidget } from './ShopChatWidget';
 import { SearchAutocomplete } from './SearchAutocomplete';
+import { MarketplaceNotificationBell } from './MarketplaceNotificationBell';
 import { useMarketplaceBootstrap } from '../../hooks/shop/useMarketplaceBootstrap';
+import { useCustomerNotifications } from '../../hooks/shop/useCustomerNotifications';
 import { initAnalytics, trackPageView } from '../../lib/marketplaceAnalytics';
 import { useAbandonedCartSync } from '../../hooks/shop/useAbandonedCart';
 import { supabase } from '../../lib/supabase';
@@ -35,6 +37,7 @@ function isNavActive(pathname: string, to: string): boolean {
 
 export const ShopLayout: React.FC = () => {
   useMarketplaceBootstrap();
+  const { unreadCount: notificationUnread } = useCustomerNotifications();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -157,6 +160,7 @@ export const ShopLayout: React.FC = () => {
                     <User className="w-5 h-5" />
                     Profile
                   </Link>
+                  <MarketplaceNotificationBell />
                   <Link
                     to={shopRoutes.chat}
                     className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground hover:bg-secondary"
@@ -166,10 +170,15 @@ export const ShopLayout: React.FC = () => {
                   </Link>
                   <Link
                     to={shopRoutes.orders}
-                    className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground hover:bg-secondary"
+                    className="relative flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-[10px] text-muted-foreground hover:bg-secondary"
                   >
                     <Package className="w-5 h-5" />
                     Orders
+                    {notificationUnread > 0 && (
+                      <span className="absolute top-0.5 right-1.5 min-w-[16px] h-4 px-1 rounded-md bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                        {notificationUnread > 99 ? '99+' : notificationUnread}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     to={shopRoutes.cart}
@@ -241,7 +250,7 @@ export const ShopLayout: React.FC = () => {
             ? 'p-0 max-w-none max-md:overflow-hidden'
             : isAccountSubPage
               ? 'max-w-6xl py-2 safe-area-px safe-area-pb safe-area-pt'
-              : 'max-w-6xl py-3 safe-area-px pb-6'
+              : 'max-w-6xl py-3 safe-area-px shop-mobile-main-pb'
         }`}
       >
         <div className="flex-1 min-h-0 flex flex-col w-full">
@@ -304,34 +313,38 @@ export const ShopLayout: React.FC = () => {
         }}
       />
 
-      <nav
-        className={`md:hidden shrink-0 z-30 bg-card border-t border-border px-1 pt-1.5 safe-area-pb safe-area-px ${
-          isChatRoom || hideShopChrome ? 'hidden' : ''
-        }`}
-      >
-        <div className="flex justify-around">
-          {navItems.map(({ to, label, icon: Icon, badge, tourId }) => (
-            <Link
-              key={to}
-              to={to}
-              data-tour={tourId}
-              className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] min-w-0 flex-1 ${
-                isNavActive(location.pathname, to)
-                  ? 'text-primary font-semibold'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              <span className="truncate max-w-full">{label}</span>
-              {badge ? (
-                <span className="absolute top-0 right-2 bg-primary text-primary-foreground text-[9px] font-bold min-w-[16px] h-4 rounded-md flex items-center justify-center px-1">
-                  {badge}
-                </span>
-              ) : null}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      {!isChatRoom && !hideShopChrome && (
+        <nav
+          className="md:hidden liquid-glass-nav liquid-glass-nav-float"
+          aria-label="Marketplace navigation"
+        >
+          <div className="flex justify-around gap-0.5">
+            {navItems.map(({ to, label, icon: Icon, badge, tourId }) => {
+              const active = isNavActive(location.pathname, to);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  data-tour={tourId}
+                  className={`relative flex flex-col items-center gap-0.5 px-2 py-2 text-[10px] min-w-0 flex-1 rounded-2xl transition-colors ${
+                    active
+                      ? 'text-primary font-semibold bg-primary/10'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 shrink-0" />
+                  <span className="truncate max-w-full">{label}</span>
+                  {badge ? (
+                    <span className="absolute top-1 right-2 bg-primary text-primary-foreground text-[9px] font-bold min-w-[16px] h-4 rounded-md flex items-center justify-center px-1">
+                      {badge}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 };

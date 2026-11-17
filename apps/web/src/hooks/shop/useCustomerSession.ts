@@ -11,6 +11,7 @@ export interface CustomerProfile {
 export function useCustomerSession() {
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
 
   const refresh = useCallback(async () => {
@@ -21,6 +22,7 @@ export function useCustomerSession() {
       } = await supabase.auth.getSession();
       if (!session) {
         setSignedIn(false);
+        setUserId(null);
         setProfile(null);
         return;
       }
@@ -33,11 +35,13 @@ export function useCustomerSession() {
 
       if (row?.role !== 'customer') {
         setSignedIn(false);
+        setUserId(null);
         setProfile(null);
         return;
       }
 
       setSignedIn(true);
+      setUserId(session.user.id);
       setProfile({
         fullName: row.full_name ?? '',
         email: row.email ?? session.user.email ?? '',
@@ -53,5 +57,5 @@ export function useCustomerSession() {
     void refresh();
   }, [refresh]);
 
-  return { loading, signedIn, profile, refresh };
+  return { loading, signedIn, userId, profile, refresh };
 }

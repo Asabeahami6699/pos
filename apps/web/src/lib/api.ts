@@ -457,6 +457,8 @@ export interface AdminOnlineOrderItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  barcode?: string | null;
+  sku?: string | null;
 }
 
 export interface AdminOnlineOrder {

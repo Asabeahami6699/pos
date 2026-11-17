@@ -18,7 +18,12 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
-import { api, type PaystackPayoutSettings, type SubscriptionInfo } from '../../../lib/api';
+import {
+  api,
+  type AdminOnlineOrder,
+  type PaystackPayoutSettings,
+  type SubscriptionInfo,
+} from '../../../lib/api';
 import { formatPlanLabel } from '@pos-inventory/shared';
 
 interface OverviewTabProps {
@@ -39,6 +44,7 @@ interface OverviewTabProps {
   branchCount?: number;
   staffCount?: number;
   restockRequests: any[];
+  pendingOnlineOrders?: AdminOnlineOrder[];
   setProcessingRequest: (request: any) => void;
   setIsProcessRestockModalOpen: (open: boolean) => void;
   setIsAddWarehouseProductModalOpen: (open: boolean) => void;
@@ -59,6 +65,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   branchCount = 0,
   staffCount = 0,
   restockRequests,
+  pendingOnlineOrders = [],
   setProcessingRequest,
   setIsProcessRestockModalOpen,
   setIsAddWarehouseProductModalOpen,
@@ -73,6 +80,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const pendingRequests = restockRequests.filter(r => r.status === 'pending');
   const displayRequests = pendingRequests.slice(0, 3);
   const hasMoreThan3 = pendingRequests.length > 0 && pendingRequests.length > 3;
+  const displayOnlineOrders = pendingOnlineOrders.slice(0, 3);
+  const hasMoreOnlineOrders = pendingOnlineOrders.length > 3;
 
   const setupItems = [
     {
@@ -113,24 +122,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const setupIncomplete = setupItems.some((i) => !i.done);
   const setupDoneCount = setupItems.filter((i) => i.done).length;
 
-  const [onlinePending, setOnlinePending] = useState(0);
   const [onlineTotal, setOnlineTotal] = useState(0);
   const [payoutSettings, setPayoutSettings] = useState<PaystackPayoutSettings | null>(null);
+  const onlinePending = pendingOnlineOrders.length;
 
   useEffect(() => {
     if (!companyId) return;
     void (async () => {
       try {
-        const [{ count }, { data: orders }, payoutRes] = await Promise.all([
-          supabase
-            .from('online_orders')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', companyId)
-            .in('status', ['pending', 'confirmed', 'processing']),
+        const [{ data: orders }, payoutRes] = await Promise.all([
           supabase.from('online_orders').select('total').eq('company_id', companyId),
           api.getPaystackPayout().catch(() => null),
         ]);
-        setOnlinePending(count ?? 0);
         setOnlineTotal(orders?.reduce((sum, o) => sum + Number(o.total ?? 0), 0) ?? 0);
         if (payoutRes?.data) setPayoutSettings(payoutRes.data);
       } catch {
@@ -295,7 +298,100 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Live Online Orders */}
+        <div className="glass-card overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <div className="flex justify-between items-center gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-foreground">Live Online Orders</h3>
+                <p className="text-xs text-muted-foreground">New marketplace orders update instantly</p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setActiveTab('online-orders')}
+              >
+                View All ({pendingOnlineOrders.length})
+              </Button>
+            </div>
+          </div>
+
+          <div className={`${hasMoreOnlineOrders ? 'max-h-[320px] overflow-y-auto' : ''}`}>
+            {displayOnlineOrders.length > 0 ? (
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-secondary/60 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      When
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {displayOnlineOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-secondary/60 cursor-pointer transition-colors"
+                      onClick={() => setActiveTab('online-orders')}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-start space-x-2">
+                          <div className="bg-emerald-500/15 p-1.5 rounded-lg">
+                            <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-foreground text-sm">
+                              {order.shipping_name || 'Customer'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {order.shipping_phone || order.fulfillment_type || 'Order'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-bold text-foreground text-sm tabular-nums">
+                          ₵{Number(order.total ?? 0).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {formatDate(order.created_at)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-800">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </span>
+                          <ArrowRight className="h-4 w-4 ml-2 text-muted-foreground" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-8">
+                <ShoppingBag className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
+                <p className="text-muted-foreground">No pending online orders</p>
+                <p className="text-sm text-muted-foreground">New shop orders appear here live</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Recent Restock Requests Table */}
         <div className="glass-card overflow-hidden">
           <div className="p-4 border-b border-border">
@@ -430,10 +526,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           )}
         </div>
         
-        {/* Quick Actions */}
-        <div className="glass-card p-4">
+      </div>
+
+      {/* Quick Actions */}
+      <div className="glass-card p-4">
           <h3 className="text-sm font-bold text-foreground mb-3">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {isBranchOnly ? (
               <button
                 type="button"
@@ -505,10 +603,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             >
               <ShoppingBag className="w-5 h-5 mx-auto mb-1 text-emerald-600" />
               <span className="text-xs font-medium text-foreground">Online shop orders</span>
-              <div className="text-[11px] text-muted-foreground mt-0.5">Confirm marketplace customer orders</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {onlinePending > 0
+                  ? `${onlinePending} pending — respond now`
+                  : 'Confirm marketplace customer orders'}
+              </div>
             </button>
           </div>
-        </div>
       </div>
     </div>
   );

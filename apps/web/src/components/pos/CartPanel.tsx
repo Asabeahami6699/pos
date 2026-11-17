@@ -1,7 +1,7 @@
 import React from 'react';
 import { PosProductThumb } from './PosProductThumb';
 import { Input } from '../Input';
-import { CreditCard, ShoppingCart, Trash2, User } from 'lucide-react';
+import { CreditCard, ShoppingCart, Trash2, User, X } from 'lucide-react';
 import type { CartItem, Customer } from '../../types/index';
 
 interface CartPanelProps {
@@ -27,6 +27,9 @@ interface CartPanelProps {
   taxRatePercent?: number;
   discountsEnabled?: boolean;
   quickDiscounts?: number[];
+  /** Mobile sheet close control */
+  onClose?: () => void;
+  className?: string;
 }
 
 export const CartPanel: React.FC<CartPanelProps> = ({
@@ -52,6 +55,8 @@ export const CartPanel: React.FC<CartPanelProps> = ({
   taxRatePercent = 16,
   discountsEnabled = true,
   quickDiscounts = [5, 10, 15],
+  onClose,
+  className = '',
 }) => {
   const isWholesale = salesType === 'wholesale';
   const totalDiscount = calculateTotalDiscount();
@@ -67,13 +72,24 @@ export const CartPanel: React.FC<CartPanelProps> = ({
   return (
     <div
       data-tour="pos-cart"
-      className="w-full lg:w-[380px] xl:w-[400px] bg-card shadow-xl flex flex-col h-full lg:border-l border-border"
+      className={`w-full lg:w-[380px] xl:w-[400px] bg-card shadow-xl flex flex-col h-full lg:border-l border-border ${className}`}
     >
       <div className="p-4 border-b border-border flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-4 h-4" />
-          </div>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl bg-secondary text-foreground flex items-center justify-center shrink-0 lg:hidden"
+              aria-label="Close cart"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <ShoppingCart className="w-4 h-4" />
+            </div>
+          )}
           <div className="min-w-0">
             <h2 className="font-bold text-base text-foreground">Current Sale</h2>
             <p className="text-[11px] text-muted-foreground capitalize truncate">
@@ -88,7 +104,7 @@ export const CartPanel: React.FC<CartPanelProps> = ({
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-40 px-2 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Clear All
+          <span className="hidden xs:inline sm:inline">Clear</span>
         </button>
       </div>
 

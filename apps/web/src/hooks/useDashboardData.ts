@@ -289,7 +289,9 @@ const useDashboardData = (companyId: string | null) => {
         price: parseFloat(productData.price),
         low_stock_threshold: parseInt(productData.threshold),
         company_id: companyId,
-        wholesale_price: productData.wholesale_price ? parseFloat(productData.wholesale_price) : null
+        wholesale_price: productData.wholesale_price ? parseFloat(productData.wholesale_price) : null,
+        // Marketplace catalog only returns listed products
+        is_online_listing: true,
       };
 
       const { error } = await supabase.from('products').insert([productDataToInsert]);
@@ -387,47 +389,60 @@ const handleEditProduct = useCallback(async (editingProduct: Product | null, cur
     if (error) throw error;
 
     // Check for price changes and record in price_history
-    const priceHistoryInserts = [];
+    const priceHistoryInserts: Array<Record<string, unknown>> = [];
 
-    // Check retail price change
     if (currentProduct.price !== editingProduct.price) {
       priceHistoryInserts.push({
         product_id: editingProduct.id,
         old_price: currentProduct.price,
         new_price: editingProduct.price,
         change_type: 'retail',
+        reason: 'retail',
         changed_by: currentUserId,
         company_id: companyId,
-        quantity_at_change: totalQuantity // ========== FIX: Add this ==========
+        quantity_at_change: totalQuantity,
       });
     }
 
-    // Check wholesale price change (handle null values)
     const currentWholesalePrice = currentProduct.wholesale_price || 0;
     const newWholesalePrice = editingProduct.wholesale_price || 0;
-    
+
     if (currentWholesalePrice !== newWholesalePrice) {
       priceHistoryInserts.push({
         product_id: editingProduct.id,
         old_price: currentWholesalePrice,
         new_price: newWholesalePrice,
         change_type: 'wholesale',
+        reason: 'wholesale',
         changed_by: currentUserId,
         company_id: companyId,
-        quantity_at_change: totalQuantity // ========== FIX: Add this ==========
+        quantity_at_change: totalQuantity,
       });
     }
 
-    // Insert price history records if there are any changes
     if (priceHistoryInserts.length > 0) {
-      const { error: historyError } = await supabase
+      let { error: historyError } = await supabase
         .from('price_history')
         .insert(priceHistoryInserts);
+
+      // Older DBs may lack change_type / quantity_at_change — retry minimal columns
+      if (historyError?.code === '42703') {
+        const minimal = priceHistoryInserts.map((row) => ({
+          product_id: row.product_id,
+          old_price: row.old_price,
+          new_price: row.new_price,
+          changed_by: row.changed_by,
+          company_id: row.company_id,
+          reason: row.reason,
+        }));
+        const retry = await supabase.from('price_history').insert(minimal);
+        historyError = retry.error;
+      }
 
       if (historyError) {
         console.error('Failed to record price history:', historyError);
         toast.warning('Price history not recorded', {
-          description: 'Product updated but price change history was not saved'
+          description: 'Product updated but price change history was not saved',
         });
       }
     }

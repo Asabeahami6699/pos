@@ -27,6 +27,7 @@ export function useMarketplaceBootstrap() {
   const setCompaniesInitialized = useEcommerceCatalogStore((s) => s.setCompaniesInitialized);
 
   const catalogLoadingRef = useRef(false);
+  const emptyCatalogRetryRef = useRef(false);
 
   const loadCatalog = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -46,9 +47,12 @@ export function useMarketplaceBootstrap() {
           shopApi.getAllProducts(),
           shopApi.getCategories().catch(() => ({ data: [] as string[] })),
         ]);
-        setMarketplaceProducts(productsRes.data);
+        setMarketplaceProducts(productsRes.data ?? []);
         setCategories(categoriesRes.data ?? []);
         setMarketplaceInitialized(true);
+        if ((productsRes.data ?? []).length > 0) {
+          emptyCatalogRetryRef.current = false;
+        }
       } catch (e) {
         if (!silent) {
           setMarketplaceError(e instanceof Error ? e.message : 'Failed to load marketplace');
@@ -114,11 +118,21 @@ export function useMarketplaceBootstrap() {
   useEffect(() => {
     if (!marketplaceInitialized) {
       loadCatalog({ silent: false });
+    } else if (marketplaceProducts.length === 0 && !emptyCatalogRetryRef.current) {
+      // One retry if an earlier load returned empty (e.g. before listing backfill).
+      emptyCatalogRetryRef.current = true;
+      loadCatalog({ silent: true });
     }
     if (!promotionsInitialized) {
       loadPromotions({ silent: false });
     }
-  }, [marketplaceInitialized, promotionsInitialized, loadCatalog, loadPromotions]);
+  }, [
+    marketplaceInitialized,
+    marketplaceProducts.length,
+    promotionsInitialized,
+    loadCatalog,
+    loadPromotions,
+  ]);
 
   useMarketplaceRealtime(() => {
     loadCatalog({ silent: true });

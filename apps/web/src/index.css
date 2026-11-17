@@ -10,9 +10,12 @@
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
-    --shop-bottom-nav-height: calc(4.75rem + var(--safe-bottom));
-    --shop-bottom-nav-gap: 1.5rem;
-    --shop-bottom-nav-offset: calc(var(--shop-bottom-nav-height) + var(--shop-bottom-nav-gap));
+    --shop-bottom-nav-height: calc(4.25rem + var(--safe-bottom));
+    --shop-bottom-nav-gap: 1.25rem;
+    --shop-bottom-nav-float: 0.75rem;
+    --shop-bottom-nav-offset: calc(
+      var(--shop-bottom-nav-height) + var(--shop-bottom-nav-gap) + var(--shop-bottom-nav-float)
+    );
     --background: 220 18% 94%;
     --foreground: 222 47% 11%;
     --card: 220 16% 97%;
@@ -161,6 +164,72 @@
       radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.22), transparent 40%),
       radial-gradient(circle at 10% 80%, rgba(255, 255, 255, 0.12), transparent 35%);
     pointer-events: none;
+  }
+
+  /* POS mobile shell */
+  .pos-mobile-shell {
+    height: 100dvh;
+    height: 100vh;
+  }
+
+  .liquid-glass-nav {
+    background: linear-gradient(
+      155deg,
+      hsl(0 0% 100% / 0.72) 0%,
+      hsl(220 30% 98% / 0.55) 45%,
+      hsl(0 0% 100% / 0.48) 100%
+    );
+    backdrop-filter: blur(22px) saturate(185%);
+    -webkit-backdrop-filter: blur(22px) saturate(185%);
+    border: 1px solid hsl(0 0% 100% / 0.55);
+    box-shadow:
+      0 10px 40px -12px hsl(222 47% 11% / 0.28),
+      inset 0 1px 0 hsl(0 0% 100% / 0.65);
+  }
+
+  .dark .liquid-glass-nav {
+    background: linear-gradient(
+      155deg,
+      hsl(222 40% 16% / 0.78) 0%,
+      hsl(222 47% 12% / 0.62) 100%
+    );
+    border-color: hsl(0 0% 100% / 0.12);
+    box-shadow:
+      0 12px 40px -10px hsl(0 0% 0% / 0.55),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+  }
+
+  .liquid-glass-nav-float {
+    position: fixed;
+    left: max(0.75rem, var(--safe-left));
+    right: max(0.75rem, var(--safe-right));
+    bottom: calc(var(--shop-bottom-nav-float) + var(--safe-bottom));
+    z-index: 40;
+    border-radius: 1.35rem;
+    padding: 0.35rem 0.4rem;
+  }
+
+  .pos-bottom-nav {
+    /* reserved — use liquid-glass-nav-float */
+  }
+
+  .pos-main-pad-mobile {
+    padding-bottom: var(--shop-bottom-nav-offset);
+  }
+
+  .pos-cart-sheet {
+    max-height: min(92dvh, 92vh);
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .pos-cart-fab {
+    bottom: calc(var(--shop-bottom-nav-offset) + 0.35rem);
+  }
+
+  @media (min-width: 768px) {
+    .pos-main-pad-mobile {
+      padding-bottom: 0;
+    }
   }
 
   .data-table-wrap {

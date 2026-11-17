@@ -19,6 +19,7 @@ export type SubscriptionCallbacks = {
   onSaleItemsChange?: () => void;
   onCentralInventoryChange?: () => void;
   onAllocationItemsChange?: () => void;
+  onOnlineOrdersChange?: () => void;
 };
 
 const isDev = import.meta.env.DEV;
@@ -136,6 +137,13 @@ export const useRealtimeSubscriptions = (
     createSubscription('notifications', 'notifications', true, 'onNotificationsChange', 'Notifications');
     createSubscription('price-history', 'price_history', true, 'onPriceHistoryChange', 'Price History');
     createSubscription('returns', 'returns', true, 'onReturnsChange', 'Returns');
+    createSubscription(
+      'online-orders',
+      'online_orders',
+      true,
+      'onOnlineOrdersChange',
+      'Online Orders',
+    );
 
     return () => {
       subscriptionSetupRef.current = false;

@@ -29,7 +29,6 @@ export const CheckoutPage: React.FC = () => {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isCustomer, setIsCustomer] = useState(false);
   const [customerEmail, setCustomerEmail] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [payingStore, setPayingStore] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
@@ -61,8 +60,11 @@ export const CheckoutPage: React.FC = () => {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
-        setCheckingAuth(false);
         setIsCustomer(false);
+        setCheckingAuth(false);
+        toast.error('Sign in required', {
+          description: 'Sign in or create an account before you can buy.',
+        });
         return;
       }
 
@@ -96,6 +98,11 @@ export const CheckoutPage: React.FC = () => {
         } catch {
           /* optional */
         }
+      } else {
+        setIsCustomer(false);
+        toast.error('Customer account required', {
+          description: 'Sign in with a shopper account to complete checkout.',
+        });
       }
       setCheckingAuth(false);
     });
@@ -231,12 +238,15 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!shippingName || !shippingPhone) {
-      toast.error('Please fill in your contact details');
+    if (!isCustomer) {
+      toast.error('Sign in required', {
+        description: 'Sign in or create an account before you can buy.',
+      });
+      navigate(shopRoutes.customerLogin(shopRoutes.checkout));
       return;
     }
-    if (!isCustomer && !guestEmail.trim()) {
-      toast.error('Please enter your email for order updates');
+    if (!shippingName || !shippingPhone) {
+      toast.error('Please fill in your contact details');
       return;
     }
     if (fulfillmentType === 'delivery' && !shippingAddress) {
@@ -246,30 +256,8 @@ export const CheckoutPage: React.FC = () => {
 
     setSubmitting(true);
     const storeEntries = Object.entries(itemsByCompany);
-    let lastGuestOrder: { id: string; token: string } | null = null;
 
     try {
-      if (!isCustomer) {
-        for (const [companyId, lines] of storeEntries) {
-          const payload = buildOrderPayload(companyId, lines);
-          const res = await shopApi.createGuestOrder({
-            ...payload,
-            guest_email: guestEmail.trim(),
-            payment_method: 'pay_on_delivery',
-          });
-          localStorage.setItem(`guest-order-${res.data.id}`, res.data.guest_order_token);
-          lastGuestOrder = { id: res.data.id, token: res.data.guest_order_token };
-          clearCompany(companyId);
-        }
-        toast.success('Order placed!');
-        if (lastGuestOrder) {
-          navigate(`/orders/${lastGuestOrder.id}/track?token=${lastGuestOrder.token}`);
-        } else {
-          navigate('/');
-        }
-        return;
-      }
-
       if (paymentMethod === 'pay_on_delivery') {
         for (const [companyId, lines] of storeEntries) {
           await shopApi.createOrder({
@@ -316,8 +304,36 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
+  if (!isCustomer) {
+    return (
+      <div className="max-w-md mx-auto jm-hero-panel p-6 sm:p-8 text-center space-y-4">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h1 className="text-xl font-bold text-foreground">Sign in to checkout</h1>
+        <p className="text-sm text-muted-foreground">
+          You need a customer account before you can buy. Sign in or create an account to continue —
+          your cart will be waiting.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
+          <Link to={shopRoutes.customerLogin(shopRoutes.checkout)}>
+            <Button className="!rounded-xl w-full sm:w-auto">Sign in</Button>
+          </Link>
+          <Link to={shopRoutes.customerSignup(shopRoutes.checkout)}>
+            <Button variant="secondary" className="!rounded-xl w-full sm:w-auto">
+              Create account
+            </Button>
+          </Link>
+        </div>
+        <Link to={shopRoutes.cart} className="block text-sm text-muted-foreground hover:text-primary">
+          Back to cart
+        </Link>
+      </div>
+    );
+  }
+
   const storeCount = Object.keys(itemsByCompany).length;
-  const effectivePaymentMethod = isCustomer ? paymentMethod : 'pay_on_delivery';
+  const effectivePaymentMethod = paymentMethod;
   const firstCompanyId = Object.keys(itemsByCompany)[0];
 
   return (
@@ -349,24 +365,6 @@ export const CheckoutPage: React.FC = () => {
         </ol>
       </div>
 
-      {!isCustomer && (
-        <div className="jm-hero-panel p-3 text-xs text-muted-foreground space-y-2">
-          <p>
-            Checking out as <strong className="text-foreground">guest</strong>. Pay on delivery
-            only — sign in for Paystack and saved addresses.
-          </p>
-          <div className="flex gap-2">
-            <Link to="/auth/login?redirect=/checkout" className="text-primary hover:underline">
-              Sign in
-            </Link>
-            <span>·</span>
-            <Link to="/auth/signup?redirect=/checkout" className="text-primary hover:underline">
-              Create account
-            </Link>
-          </div>
-        </div>
-      )}
-
       {storeCount > 1 && effectivePaymentMethod === 'paystack' && (
         <div className="jm-hero-panel p-3 text-xs text-muted-foreground">
           You will pay <strong className="text-foreground">{storeCount} stores separately</strong>{' '}
@@ -386,15 +384,6 @@ export const CheckoutPage: React.FC = () => {
           <section className="jm-hero-panel p-4 sm:p-5 space-y-4">
             <h2 className="text-base font-bold text-foreground">Shipping address</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {!isCustomer && (
-                <input
-                  className="input-modern py-2.5 text-sm sm:col-span-2"
-                  type="email"
-                  placeholder="Email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                />
-              )}
               <input
                 className="input-modern py-2.5 text-sm sm:col-span-2"
                 placeholder="Full name"
@@ -489,53 +478,47 @@ export const CheckoutPage: React.FC = () => {
 
           <section className="jm-hero-panel p-4 sm:p-5 space-y-3">
             <h2 className="text-base font-bold text-foreground">Payment option</h2>
-            {isCustomer ? (
-              <div className="space-y-2">
-                <label
-                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer ${
-                    paymentMethod === 'paystack'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="pay"
-                    checked={paymentMethod === 'paystack'}
-                    onChange={() => setPaymentMethod('paystack')}
-                  />
+            <div className="space-y-2">
+              <label
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer ${
+                  paymentMethod === 'paystack'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="pay"
+                  checked={paymentMethod === 'paystack'}
+                  onChange={() => setPaymentMethod('paystack')}
+                />
+                <div>
+                  <p className="text-sm font-semibold">Paystack</p>
+                  <p className="text-xs text-muted-foreground">Card / MoMo / Bank</p>
+                </div>
+              </label>
+              <label
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer ${
+                  paymentMethod === 'pay_on_delivery'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="pay"
+                  checked={paymentMethod === 'pay_on_delivery'}
+                  onChange={() => setPaymentMethod('pay_on_delivery')}
+                />
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-semibold">Paystack</p>
-                    <p className="text-xs text-muted-foreground">Card / MoMo / Bank</p>
+                    <p className="text-sm font-semibold">Cash on delivery</p>
+                    <p className="text-xs text-muted-foreground">Pay when you receive</p>
                   </div>
-                </label>
-                <label
-                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer ${
-                    paymentMethod === 'pay_on_delivery'
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="pay"
-                    checked={paymentMethod === 'pay_on_delivery'}
-                    onChange={() => setPaymentMethod('pay_on_delivery')}
-                  />
-                  <div className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-semibold">Cash on delivery</p>
-                      <p className="text-xs text-muted-foreground">Pay when you receive</p>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Guest checkout uses <strong className="text-foreground">pay on delivery</strong>.
-              </p>
-            )}
+                </div>
+              </label>
+            </div>
 
             <input
               className="input-modern py-2.5 text-sm"

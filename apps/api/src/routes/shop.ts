@@ -94,6 +94,88 @@ function isOptionalProductColumnError(error: { code?: string; message?: string }
   );
 }
 
+function orderNumberFromId(orderId: string): string {
+  return String(orderId).replace(/-/g, '').slice(-8).toUpperCase();
+}
+
+/** Mix barcode/SKU with order number — e.g. PEAK123-A1B2C3D4 */
+function buildProductTrackingNumber(orderId: string, barcodeOrSku?: string | null): string {
+  const orderNo = orderNumberFromId(orderId);
+  const code = String(barcodeOrSku ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .toUpperCase();
+  if (!code) return `ORD-${orderNo}`;
+  return `${code}-${orderNo}`;
+}
+
+async function attachOrderItemBarcodes(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  orders: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const productIds = new Set<string>();
+  for (const order of orders) {
+    const items = (order.online_order_items as Array<{ product_id?: string }> | undefined) ?? [];
+    for (const item of items) {
+      if (item.product_id) productIds.add(item.product_id);
+    }
+  }
+  if (productIds.size === 0) return orders;
+
+  let { data: products, error } = await db(supabase)
+    .from('products')
+    .select('id, sku, barcode')
+    .in('id', [...productIds]);
+
+  if (error && isMissingColumnError(error, 'barcode')) {
+    const fallback = await db(supabase)
+      .from('products')
+      .select('id, sku')
+      .in('id', [...productIds]);
+    products = (fallback.data ?? []).map((p: { id: string; sku: string | null }) => ({
+      ...p,
+      barcode: null,
+    }));
+    error = fallback.error;
+  }
+  if (error) throw error;
+
+  const productMap = new Map(
+    (products ?? []).map((p: { id: string; sku?: string | null; barcode?: string | null }) => [
+      p.id,
+      p,
+    ]),
+  );
+
+  return orders.map((order) => {
+    const items = (order.online_order_items as Array<Record<string, unknown>> | undefined) ?? [];
+    return {
+      ...order,
+      online_order_items: items.map((item) => {
+        const product = productMap.get(String(item.product_id ?? ''));
+        return {
+          ...item,
+          barcode: product?.barcode ?? null,
+          sku: product?.sku ?? (item.sku as string | null | undefined) ?? null,
+        };
+      }),
+    };
+  });
+}
+
+function trackingCodeFromItems(
+  items?: Array<{ barcode?: string | null; sku?: string | null }>,
+): string | null {
+  if (!items?.length) return null;
+  const codes = items
+    .map((item) => (item.barcode || item.sku || '').trim())
+    .filter(Boolean);
+  const unique = [...new Set(codes.map((c) => c.toUpperCase()))];
+  if (unique.length === 0) return null;
+  if (unique.length === 1) return unique[0];
+  return unique.slice(0, 3).join('+');
+}
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object' && 'message' in error) {
@@ -494,14 +576,19 @@ shopRouter.get('/companies/:companyId/products/:productId', async (req, res) => 
 
     let productRow: ShopProductRow;
     try {
+      // Detail by ID: allow fetch even if listing flag lags behind catalog feeds
       productRow = (await fetchShopProducts(supabase, {
         companyId,
         productId,
         single: true,
+        listedOnly: false,
       })) as ShopProductRow;
     } catch {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
+
+    // Prefer listed products publicly; still serve if present for this store
+    // (promo/recommendation feeds may surface a product before listing is synced)
 
     const stockMap = await fetchSellableStockMap(supabase, [companyId]);
     const stock = stockForProduct(stockMap, companyId, productId);
@@ -731,45 +818,55 @@ shopRouter.get('/promotions', async (req, res) => {
 
     const picked = new Map<string, Record<string, unknown>>();
 
+    const listedSelect = `${PRODUCT_CORE_SELECT}, image_url, is_online_listing`;
+
+    async function selectListedProducts(
+      apply: (q: ReturnType<ReturnType<typeof db>['from']>) => unknown,
+    ) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query: any = db(supabase).from('products').select(listedSelect);
+      query = apply(query);
+      let { data, error } = await query.eq('is_online_listing', true);
+      if (error && isMissingColumnError(error, 'is_online_listing')) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let fallback: any = db(supabase).from('products').select(`${PRODUCT_CORE_SELECT}, image_url`);
+        fallback = apply(fallback);
+        const retry = await fallback;
+        data = retry.data;
+        error = retry.error;
+      }
+      if (error) throw error;
+      return (data ?? []) as Array<Record<string, unknown>>;
+    }
+
     if (clickedProductIds.length > 0) {
-      const { data: clickedProducts } = await db(supabase)
-        .from('products')
-        .select(`${PRODUCT_CORE_SELECT}, image_url`)
-        .in('company_id', companyIds)
-        .in('id', clickedProductIds);
+      const clickedProducts = await selectListedProducts((q) =>
+        q.in('company_id', companyIds).in('id', clickedProductIds),
+      );
 
       for (const productId of clickedProductIds) {
-        const row = (clickedProducts ?? []).find(
-          (p: { id: string }) => p.id === productId,
-        ) as Record<string, unknown> | undefined;
+        const row = clickedProducts.find((p) => p.id === productId);
         if (row) picked.set(productId, row);
       }
     }
 
     if (picked.size < 8 && topCategories.length > 0) {
-      const { data: categoryProducts } = await db(supabase)
-        .from('products')
-        .select(`${PRODUCT_CORE_SELECT}, image_url`)
-        .in('company_id', companyIds)
-        .in('category', topCategories)
-        .limit(40);
+      const categoryProducts = await selectListedProducts((q) =>
+        q.in('company_id', companyIds).in('category', topCategories).limit(40),
+      );
 
-      for (const row of (categoryProducts ?? []) as Array<Record<string, unknown>>) {
+      for (const row of categoryProducts) {
         if (picked.size >= 8) break;
         picked.set(row.id as string, row);
       }
     }
 
     if (picked.size < 8) {
-      const { data: fallbackProducts } = await db(supabase)
-        .from('products')
-        .select(`${PRODUCT_CORE_SELECT}, image_url`)
-        .in('company_id', companyIds)
-        .limit(40);
-
-      const shuffled = [...((fallbackProducts ?? []) as Array<Record<string, unknown>>)].sort(
-        () => Math.random() - 0.5,
+      const fallbackProducts = await selectListedProducts((q) =>
+        q.in('company_id', companyIds).limit(40),
       );
+
+      const shuffled = [...fallbackProducts].sort(() => Math.random() - 0.5);
       for (const row of shuffled) {
         if (picked.size >= 8) break;
         picked.set(row.id as string, row);
@@ -829,12 +926,24 @@ shopRouter.get('/categories', async (_req, res) => {
     let from = 0;
 
     while (true) {
-      const { data: products, error: productsError } = await supabase
+      let { data: products, error: productsError } = await supabase
         .from('products')
         .select('category')
         .in('company_id', companyIds)
+        .eq('is_online_listing', true)
         .not('category', 'is', null)
         .range(from, from + PAGE_SIZE - 1);
+
+      if (productsError && isMissingColumnError(productsError, 'is_online_listing')) {
+        const fallback = await supabase
+          .from('products')
+          .select('category')
+          .in('company_id', companyIds)
+          .not('category', 'is', null)
+          .range(from, from + PAGE_SIZE - 1);
+        products = fallback.data;
+        productsError = fallback.error;
+      }
 
       if (productsError) throw productsError;
 
@@ -1016,6 +1125,15 @@ shopRouter.post('/orders', requireAuth, async (req: AuthenticatedRequest, res) =
       promoCode: data.promo_code ?? null,
     });
 
+    const orderId = String((order as { id?: string })?.id ?? '');
+    void notifyCustomer(supabase, customerId, {
+      type: 'order',
+      title: 'Order placed',
+      body: 'Your order was received. We will notify you as it progresses.',
+      link: orderId ? `/orders/${orderId}/track` : '/account/orders',
+      metadata: { order_id: orderId || undefined },
+    });
+
     return res.status(201).json({ success: true, data: order });
   } catch (error) {
     return res.status(500).json({
@@ -1126,7 +1244,11 @@ shopRouter.get(
         throw error;
       }
 
-      return res.json({ success: true, data: data ?? [] });
+      const enriched = await attachOrderItemBarcodes(
+        supabase,
+        (data ?? []) as Array<Record<string, unknown>>,
+      );
+      return res.json({ success: true, data: enriched });
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -1172,10 +1294,19 @@ shopRouter.patch(
         return res.status(404).json({ success: false, error: 'Order not found' });
       }
 
-      const orderRow = order as unknown as {
+      const [enrichedOrder] = await attachOrderItemBarcodes(supabase, [
+        order as Record<string, unknown>,
+      ]);
+      const orderRow = enrichedOrder as {
         status: string;
         customer_id: string | null;
-        online_order_items?: Array<{ product_id: string; quantity: number }>;
+        tracking_number?: string | null;
+        online_order_items?: Array<{
+          product_id: string;
+          quantity: number;
+          barcode?: string | null;
+          sku?: string | null;
+        }>;
       };
 
       const currentStatus = orderRow.status;
@@ -1210,6 +1341,18 @@ shopRouter.patch(
         patch.carrier_name = carrierName || null;
       }
 
+      // Auto-mix barcode + order number when shipping/ready and no tracking yet
+      const shouldAutoTrack =
+        (nextStatus === 'shipped' || nextStatus === 'ready') &&
+        !patch.tracking_number &&
+        !orderRow.tracking_number;
+      if (shouldAutoTrack) {
+        patch.tracking_number = buildProductTrackingNumber(
+          orderId,
+          trackingCodeFromItems(orderRow.online_order_items),
+        );
+      }
+
       const { data: updated, error: updateError } = await db(supabase)
         .from('online_orders')
         .update(patch)
@@ -1220,38 +1363,62 @@ shopRouter.patch(
 
       if (updateError) throw updateError;
 
+      const [enrichedUpdated] = await attachOrderItemBarcodes(supabase, [
+        updated as Record<string, unknown>,
+      ]);
+
+      const finalTracking =
+        (enrichedUpdated.tracking_number as string | null | undefined) ??
+        (patch.tracking_number as string | undefined) ??
+        trackingNumber;
+
       if (nextStatus) {
+        const trackNote = finalTracking ? ` · Tracking ${finalTracking}` : '';
         await db(supabase).from('order_tracking_events').insert({
           order_id: orderId,
           status: nextStatus,
-          message: `Order status updated to ${nextStatus}`,
+          message: `Order status updated to ${nextStatus}${trackNote}`,
         });
-      } else if (trackingNumber || carrierName) {
+      } else if (trackingNumber || carrierName || shouldAutoTrack) {
         await db(supabase).from('order_tracking_events').insert({
           order_id: orderId,
           status: currentStatus,
-          message: `Tracking updated${carrierName ? `: ${carrierName}` : ''}${trackingNumber ? ` — ${trackingNumber}` : ''}`,
+          message: `Tracking updated${carrierName ? `: ${carrierName}` : ''}${finalTracking ? ` — ${finalTracking}` : ''}`,
         });
       }
 
-      if (orderRow.customer_id && nextStatus) {
-        const statusLabels: Record<string, string> = {
-          confirmed: 'confirmed',
-          processing: 'being processed',
-          ready: 'ready for pickup',
-          shipped: 'shipped',
-          delivered: 'delivered',
-          cancelled: 'cancelled',
-        };
-        const label = statusLabels[nextStatus] ?? nextStatus;
-        void notifyCustomer(supabase, orderRow.customer_id, {
-          title: 'Order update',
-          body: `Your order is now ${label}.`,
-          link: `/orders/${orderId}/track`,
-        });
+      if (orderRow.customer_id) {
+        if (nextStatus) {
+          const statusLabels: Record<string, string> = {
+            confirmed: 'confirmed',
+            processing: 'being processed',
+            ready: 'ready for pickup',
+            shipped: 'shipped',
+            delivered: 'delivered',
+            cancelled: 'cancelled',
+          };
+          const label = statusLabels[nextStatus] ?? nextStatus;
+          void notifyCustomer(supabase, orderRow.customer_id, {
+            type: 'order',
+            title: 'Order update',
+            body: finalTracking
+              ? `Your order is now ${label}. Tracking: ${finalTracking}`
+              : `Your order is now ${label}.`,
+            link: `/orders/${orderId}/track`,
+            metadata: { order_id: orderId, status: nextStatus, tracking_number: finalTracking },
+          });
+        } else if (finalTracking && (trackingNumber || shouldAutoTrack)) {
+          void notifyCustomer(supabase, orderRow.customer_id, {
+            type: 'order',
+            title: 'Tracking update',
+            body: `Tracking number: ${finalTracking}`,
+            link: `/orders/${orderId}/track`,
+            metadata: { order_id: orderId, tracking_number: finalTracking },
+          });
+        }
       }
 
-      return res.json({ success: true, data: updated });
+      return res.json({ success: true, data: enrichedUpdated });
     } catch (error) {
       return res.status(500).json({
         success: false,
@@ -1347,9 +1514,11 @@ shopRouter.patch(
         const msg = messages[parsed.data.status];
         if (msg) {
           void notifyCustomer(supabase, row.customer_id, {
+            type: 'return',
             title: 'Return update',
             body: msg,
             link: '/account/orders',
+            metadata: { order_id: row.order_id, status: parsed.data.status },
           });
         }
       }
@@ -1987,9 +2156,11 @@ shopRouter.post(
 
       const threadRow = thread as { id: string; customer_id: string };
       void notifyCustomer(supabase, threadRow.customer_id, {
+        type: 'chat',
         title: 'New message from seller',
         body: 'Open your inbox to read and reply.',
         link: '/account/inbox',
+        metadata: { thread_id: threadRow.id },
       });
 
       return res.status(201).json({ success: true, data: decrypted });

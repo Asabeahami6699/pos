@@ -17,6 +17,11 @@ import {
 import { toast } from 'sonner';
 import { api, type AdminOnlineOrder, type AdminOnlineOrderStatus, type AdminReturnRequest } from '../../../lib/api';
 import { supabase } from '../../../lib/supabase';
+import {
+  buildProductTrackingNumber,
+  orderNumberFromId,
+  trackingCodeFromOrderItems,
+} from '../../../lib/orderTrackingNumber';
 
 interface OnlineOrdersTabProps {
   companyId?: string | null;
@@ -124,8 +129,16 @@ export const OnlineOrdersTab: React.FC<OnlineOrdersTabProps> = ({ companyId }) =
           table: 'online_orders',
           filter: `company_id=eq.${companyId}`,
         },
-        () => {
-          loadOrders();
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as { shipping_name?: string; total?: number } | null;
+            toast.info('New online order', {
+              description: row
+                ? `${row.shipping_name || 'Customer'} · ₵${Number(row.total ?? 0).toFixed(2)}`
+                : 'A customer just placed an order',
+            });
+          }
+          void loadOrders();
         },
       )
       .subscribe();
@@ -170,18 +183,26 @@ export const OnlineOrdersTab: React.FC<OnlineOrdersTabProps> = ({ companyId }) =
     if (showReturns) loadReturns();
   }, [showReturns, loadReturns]);
 
+  const suggestedTracking = (order: AdminOnlineOrder) =>
+    buildProductTrackingNumber(order.id, trackingCodeFromOrderItems(order.online_order_items));
+
   const handleSaveTracking = async (order: AdminOnlineOrder) => {
     const draft = trackingDraft[order.id] ?? {
       carrier: order.carrier_name ?? '',
       number: order.tracking_number ?? '',
     };
+    const trackingNumber = draft.number.trim() || suggestedTracking(order);
     setUpdatingId(order.id);
     try {
       await api.updateAdminOnlineOrderStatus(order.id, {
         carrier_name: draft.carrier.trim(),
-        tracking_number: draft.number.trim(),
+        tracking_number: trackingNumber,
       });
-      toast.success('Tracking saved');
+      setTrackingDraft((prev) => ({
+        ...prev,
+        [order.id]: { carrier: draft.carrier, number: trackingNumber },
+      }));
+      toast.success('Tracking saved', { description: trackingNumber });
       await loadOrders();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to save tracking');
@@ -329,10 +350,17 @@ export const OnlineOrdersTab: React.FC<OnlineOrdersTabProps> = ({ companyId }) =
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      Order #{order.id.slice(-8).toUpperCase()}
+                      Order #{orderNumberFromId(order.id)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {new Date(order.created_at).toLocaleString()}
+                    </p>
+                    <p className="text-[10px] font-mono text-primary/90 mt-0.5">
+                      Track:{' '}
+                      {order.tracking_number || suggestedTracking(order)}
+                      {!order.tracking_number && (
+                        <span className="text-muted-foreground"> (suggested)</span>
+                      )}
                     </p>
                   </div>
                   <span
@@ -358,16 +386,27 @@ export const OnlineOrdersTab: React.FC<OnlineOrdersTabProps> = ({ companyId }) =
                 </div>
 
                 <ul className="text-xs border-t border-border pt-2 space-y-1">
-                  {order.online_order_items?.map((item) => (
-                    <li key={item.id} className="flex justify-between gap-2">
-                      <span>
-                        {item.product_name} × {item.quantity}
-                      </span>
-                      <span className="tabular-nums text-muted-foreground">
-                        ₵{Number(item.total_price).toFixed(2)}
-                      </span>
-                    </li>
-                  ))}
+                  {order.online_order_items?.map((item) => {
+                    const itemTrack = buildProductTrackingNumber(
+                      order.id,
+                      item.barcode || item.sku,
+                    );
+                    return (
+                      <li key={item.id} className="flex justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="font-medium">{item.product_name}</span> × {item.quantity}
+                          <span className="block text-[10px] font-mono text-muted-foreground truncate">
+                            {item.barcode || item.sku
+                              ? `${item.barcode || item.sku} · ${itemTrack}`
+                              : itemTrack}
+                          </span>
+                        </span>
+                        <span className="tabular-nums text-muted-foreground shrink-0">
+                          ₵{Number(item.total_price).toFixed(2)}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
@@ -387,43 +426,72 @@ export const OnlineOrdersTab: React.FC<OnlineOrdersTabProps> = ({ companyId }) =
                 )}
 
                 {['confirmed', 'processing', 'ready', 'shipped', 'delivered'].includes(order.status) && (
-                  <div className="flex flex-wrap gap-2 items-end pt-1 border-t border-border">
-                    <input
-                      className="input-modern py-1.5 text-xs h-8 flex-1 min-w-[6rem]"
-                      placeholder="Carrier"
-                      value={trackingDraft[order.id]?.carrier ?? order.carrier_name ?? ''}
-                      onChange={(e) =>
-                        setTrackingDraft((prev) => ({
-                          ...prev,
-                          [order.id]: {
-                            carrier: e.target.value,
-                            number: prev[order.id]?.number ?? order.tracking_number ?? '',
-                          },
-                        }))
-                      }
-                    />
-                    <input
-                      className="input-modern py-1.5 text-xs h-8 flex-1 min-w-[8rem]"
-                      placeholder="Tracking number"
-                      value={trackingDraft[order.id]?.number ?? order.tracking_number ?? ''}
-                      onChange={(e) =>
-                        setTrackingDraft((prev) => ({
-                          ...prev,
-                          [order.id]: {
-                            carrier: prev[order.id]?.carrier ?? order.carrier_name ?? '',
-                            number: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      loading={isUpdating}
-                      onClick={() => handleSaveTracking(order)}
-                    >
-                      Save tracking
-                    </Button>
+                  <div className="space-y-2 pt-1 border-t border-border">
+                    <p className="text-[10px] text-muted-foreground">
+                      Tracking = product barcode/SKU + order number (e.g.{' '}
+                      <span className="font-mono text-foreground">{suggestedTracking(order)}</span>)
+                    </p>
+                    <div className="flex flex-wrap gap-2 items-end">
+                      <input
+                        className="input-modern py-1.5 text-xs h-8 flex-1 min-w-[6rem]"
+                        placeholder="Carrier"
+                        value={trackingDraft[order.id]?.carrier ?? order.carrier_name ?? ''}
+                        onChange={(e) =>
+                          setTrackingDraft((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              carrier: e.target.value,
+                              number:
+                                prev[order.id]?.number ??
+                                order.tracking_number ??
+                                suggestedTracking(order),
+                            },
+                          }))
+                        }
+                      />
+                      <input
+                        className="input-modern py-1.5 text-xs h-8 flex-1 min-w-[8rem] font-mono"
+                        placeholder="Barcode-OrderNo"
+                        value={
+                          trackingDraft[order.id]?.number ??
+                          order.tracking_number ??
+                          suggestedTracking(order)
+                        }
+                        onChange={(e) =>
+                          setTrackingDraft((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              carrier: prev[order.id]?.carrier ?? order.carrier_name ?? '',
+                              number: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          setTrackingDraft((prev) => ({
+                            ...prev,
+                            [order.id]: {
+                              carrier: prev[order.id]?.carrier ?? order.carrier_name ?? '',
+                              number: suggestedTracking(order),
+                            },
+                          }))
+                        }
+                      >
+                        Mix barcode+order
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={isUpdating}
+                        onClick={() => handleSaveTracking(order)}
+                      >
+                        Save tracking
+                      </Button>
+                    </div>
                   </div>
                 )}
 

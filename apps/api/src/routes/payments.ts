@@ -16,6 +16,7 @@ import {
   validateCheckoutStock,
   type CheckoutPayload,
 } from '../services/shopOrders.js';
+import { notifyCustomer } from '../lib/customerNotifications.js';
 
 function db(supabase: ReturnType<typeof getSupabaseAdmin>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -319,6 +320,17 @@ export async function completePaymentIfVerified(
   });
 
   if (fulfillError) throw fulfillError;
+
+  const fulfilledOrderId = String(orderId ?? '');
+  if (fulfilledOrderId) {
+    void notifyCustomer(supabase, customerId, {
+      type: 'order',
+      title: 'Payment received',
+      body: 'Your order was paid successfully. We will notify you as it progresses.',
+      link: `/orders/${fulfilledOrderId}/track`,
+      metadata: { order_id: fulfilledOrderId, payment_reference: reference },
+    });
+  }
 
   return { order_id: orderId as string, reference };
 }

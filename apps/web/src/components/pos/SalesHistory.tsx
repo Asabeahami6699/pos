@@ -55,18 +55,18 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-bold text-foreground">Sales History</h3>
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <h3 className="text-base sm:text-lg font-bold text-foreground">Sales History</h3>
         <div className="flex items-center space-x-3">
           <div className="text-xs text-muted-foreground flex items-center">
             <span className={`w-2 h-2 rounded-full mr-1 ${realtimeConnection === 'connected' ? 'bg-emerald-500/100 animate-pulse' : 'bg-red-500/100'}`}></span>
-            Live Updates
+            Live
           </div>
         </div>
       </div>
 
-      <div className="bg-card rounded-xl p-4 border">
-        <div className="flex justify-between items-center mb-3">
+      <div className="bg-card rounded-xl p-3 sm:p-4 border">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-3">
           <h4 className="font-medium text-foreground">Filter Sales</h4>
           <div className="text-xs text-muted-foreground">
             Showing {filteredSales.length} of {sales.length} sales
@@ -102,37 +102,37 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="bg-card rounded-xl p-4 border shadow-sm">
-          <div className="text-sm text-muted-foreground mb-1">Total Sales</div>
-          <div className="text-2xl font-bold text-foreground">{totals.totalSales}</div>
-          <div className="text-xs text-muted-foreground mt-1">Selected period</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="bg-card rounded-xl p-3 sm:p-4 border shadow-sm">
+          <div className="text-xs sm:text-sm text-muted-foreground mb-1">Total Sales</div>
+          <div className="text-xl sm:text-2xl font-bold text-foreground">{totals.totalSales}</div>
+          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Selected period</div>
         </div>
-        <div className="bg-card rounded-xl p-4 border shadow-sm">
-          <div className="text-sm text-muted-foreground mb-1">Gross Revenue</div>
-          <div className="text-2xl font-bold text-green-600">${totals.totalRevenue.toFixed(2)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Before refunds</div>
+        <div className="bg-card rounded-xl p-3 sm:p-4 border shadow-sm">
+          <div className="text-xs sm:text-sm text-muted-foreground mb-1">Gross Revenue</div>
+          <div className="text-xl sm:text-2xl font-bold text-orange-500">₵{totals.totalRevenue.toFixed(2)}</div>
+          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Before refunds</div>
         </div>
-        <div className="bg-card rounded-xl p-4 border shadow-sm">
-          <div className="text-sm text-muted-foreground mb-1">Total Refunds</div>
-          <div className="text-2xl font-bold text-red-600">${totals.totalRefunds.toFixed(2)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Amount refunded</div>
+        <div className="bg-card rounded-xl p-3 sm:p-4 border shadow-sm">
+          <div className="text-xs sm:text-sm text-muted-foreground mb-1">Total Refunds</div>
+          <div className="text-xl sm:text-2xl font-bold text-red-600">₵{totals.totalRefunds.toFixed(2)}</div>
+          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Amount refunded</div>
         </div>
-        <div className="bg-card rounded-xl p-4 border shadow-sm">
-          <div className="text-sm text-muted-foreground mb-1">Net Revenue</div>
-          <div className="text-2xl font-bold text-indigo-600">${totals.netRevenue.toFixed(2)}</div>
-          <div className="text-xs text-muted-foreground mt-1">After refunds</div>
+        <div className="bg-card rounded-xl p-3 sm:p-4 border shadow-sm">
+          <div className="text-xs sm:text-sm text-muted-foreground mb-1">Net Revenue</div>
+          <div className="text-xl sm:text-2xl font-bold text-primary">₵{totals.netRevenue.toFixed(2)}</div>
+          <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">After refunds</div>
         </div>
       </div>
 
       {loading ? (
         <div className="bg-card rounded-xl shadow-sm p-12 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading sales history...</p>
         </div>
       ) : (
-        <div className="bg-card rounded-xl shadow-sm overflow-hidden">
-          <table className="min-w-full divide-y divide-border">
+        <div className="bg-card rounded-xl shadow-sm overflow-x-auto -mx-1 sm:mx-0">
+          <table className="min-w-[720px] w-full divide-y divide-border">
             <thead className="bg-secondary/60">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sale ID</th>

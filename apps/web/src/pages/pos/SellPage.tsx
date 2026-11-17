@@ -14,6 +14,7 @@ import {
   RotateCcw,
   ScanBarcode,
   ShoppingBag,
+  ShoppingCart,
   Store,
 } from 'lucide-react';
 
@@ -99,6 +100,7 @@ const SellPage: React.FC = () => {
   const [showInvoiceDeliveryModal, setShowInvoiceDeliveryModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
 
   // Filters
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters>({
@@ -488,6 +490,7 @@ const SellPage: React.FC = () => {
   const pendingReturnsCount = returns.filter((r) => r.status === 'pending').length;
 
   const switchTab = (tab: ActiveTab) => {
+    setShowMobileCart(false);
     setActiveTab(tab);
     if (tab === 'history') {
       setHistoryFilters((prev) => ({ ...prev, dateRange: getTodayRange() }));
@@ -613,7 +616,7 @@ const SellPage: React.FC = () => {
             <p className="text-sm text-muted-foreground mt-1">Try another category or search term</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
             {displayedProducts.map((product) => {
               const price = getProductPriceFromHook(product);
               const inStock = !!(product.stock && product.stock > 0);
@@ -625,13 +628,13 @@ const SellPage: React.FC = () => {
                 <div
                   key={`product-${product.id}`}
                   data-product-id={product.id}
-                  className={`pos-product-card ${!inStock ? 'opacity-55' : ''} ${
+                  className={`pos-product-card !p-2.5 sm:!p-3.5 ${!inStock ? 'opacity-55' : ''} ${
                     recentlyUpdated ? 'ring-2 ring-emerald-400/60' : ''
                   } ${product.is_low_stock ? 'border-l-4 border-l-destructive' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                     <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
+                      className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold ${
                         inStock ? 'text-emerald-600' : 'text-red-500'
                       }`}
                     >
@@ -640,7 +643,8 @@ const SellPage: React.FC = () => {
                           inStock ? 'bg-emerald-500' : 'bg-red-500'
                         }`}
                       />
-                      {inStock ? 'In Stock' : 'Out of Stock'}
+                      <span className="hidden sm:inline">{inStock ? 'In Stock' : 'Out of Stock'}</span>
+                      <span className="sm:hidden">{inStock ? 'Stock' : 'Out'}</span>
                     </span>
                     {product.is_low_stock && inStock && (
                       <span className="text-[10px] font-bold text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded-full">
@@ -651,21 +655,21 @@ const SellPage: React.FC = () => {
 
                   <PosProductThumb imageUrl={product.image_url} name={product.name} size="lg" />
 
-                  <h3 className="font-semibold text-foreground text-sm line-clamp-2 min-h-[2.5rem] mt-1">
+                  <h3 className="font-semibold text-foreground text-xs sm:text-sm line-clamp-2 min-h-[2.25rem] sm:min-h-[2.5rem] mt-1">
                     {product.name}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground truncate mb-2">
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate mb-2">
                     {product.sku}
                     {product.barcode ? ` · ${product.barcode}` : ''}
                   </p>
 
-                  <div className="flex items-end justify-between gap-2 mt-auto">
-                    <div>
-                      <div className="text-lg font-extrabold text-orange-500">
+                  <div className="flex items-end justify-between gap-1.5 sm:gap-2 mt-auto">
+                    <div className="min-w-0">
+                      <div className="text-base sm:text-lg font-extrabold text-orange-500 truncate">
                         ₵{price.toFixed(2)}
                       </div>
                       {isWholesale && product.price !== price && (
-                        <div className="text-[11px] text-muted-foreground line-through">
+                        <div className="text-[10px] sm:text-[11px] text-muted-foreground line-through">
                           ₵{product.price.toFixed(2)}
                         </div>
                       )}
@@ -677,10 +681,10 @@ const SellPage: React.FC = () => {
                       type="button"
                       onClick={() => addToCart(product)}
                       disabled={!inStock}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all"
+                      className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-2 rounded-xl bg-primary text-primary-foreground text-[11px] sm:text-xs font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all shrink-0"
                     >
                       <ShoppingBag className="w-3.5 h-3.5" />
-                      Add
+                      <span className="hidden xs:inline sm:inline">Add</span>
                     </button>
                   </div>
                 </div>
@@ -760,9 +764,37 @@ const SellPage: React.FC = () => {
     );
   }
 
+  const cartPanelProps = {
+    cart,
+    salesType,
+    customer,
+    discountPercentage,
+    discountAmount,
+    setDiscountPercentage,
+    setDiscountAmount,
+    setShowCustomerModal,
+    setShowPaymentModal: (show: boolean) => {
+      if (show) setShowMobileCart(false);
+      setShowPaymentModal(show);
+    },
+    removeFromCart,
+    updateQuantity,
+    applyDiscount,
+    clearCart,
+    calculateSubtotal,
+    calculateTotalDiscount,
+    calculateTax,
+    calculateTotal,
+    calculateItemTotal,
+    submitting,
+    taxRatePercent,
+    discountsEnabled,
+    quickDiscounts: posSettings.quickDiscounts,
+  } as const;
+
   return (
-    <div className="flex h-screen page-shell overflow-hidden">
-      {/* Dark icon sidebar */}
+    <div className="flex pos-mobile-shell page-shell overflow-hidden">
+      {/* Dark icon sidebar — desktop */}
       <aside className="hidden md:flex w-[88px] shrink-0 flex-col items-center py-5 bg-[hsl(222_47%_11%)] text-white">
         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-extrabold text-sm shadow-lg mb-6">
           POS
@@ -840,18 +872,18 @@ const SellPage: React.FC = () => {
         />
 
         {/* Top header */}
-        <header className="bg-card border-b border-border px-4 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="text-xl font-extrabold tracking-tight">
+        <header className="bg-card border-b border-border px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-3 shrink-0 safe-area-pt">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <span className="text-lg sm:text-xl font-extrabold tracking-tight">
                 <span className="text-foreground">Shop</span>
                 <span className="text-primary">Zone</span>
               </span>
             </div>
 
             <div className="flex items-center gap-2 min-w-0">
-              <div className="relative">
-                <Store className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <div className="relative min-w-0">
+                <Store className="w-4 h-4 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <select
                   value={selectedBranch.id}
                   onChange={(e) => {
@@ -861,7 +893,7 @@ const SellPage: React.FC = () => {
                       updateAvailableSalesTypes(branch);
                     }
                   }}
-                  className="appearance-none pl-9 pr-8 py-2 rounded-xl border border-border bg-secondary/60 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[180px] truncate"
+                  className="appearance-none pl-8 sm:pl-9 pr-7 py-2 rounded-xl border border-border bg-secondary/60 text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[42vw] sm:max-w-[180px] truncate"
                   aria-label="Select branch"
                 >
                   {branches.map((b) => (
@@ -892,7 +924,7 @@ const SellPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <RealtimeNotificationBell
               notifications={notifications}
               onMarkAllAsSeen={markAllNotificationsAsSeen}
@@ -930,7 +962,7 @@ const SellPage: React.FC = () => {
             <Button
               onClick={() => void handleLogout()}
               size="sm"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-1.5"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl gap-1.5 px-2.5 sm:px-3"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Logout</span>
@@ -938,37 +970,9 @@ const SellPage: React.FC = () => {
           </div>
         </header>
 
-        {/* Mobile nav tabs */}
-        <div className="md:hidden bg-card/80 border-b border-border px-2 overflow-x-auto">
-          <div className="flex gap-1 min-w-max py-1">
-            {navItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={`m-${item.id}`}
-                  type="button"
-                  onClick={() => switchTab(item.id)}
-                  className={`relative px-3 py-2.5 text-xs font-semibold rounded-lg capitalize ${
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  {item.label}
-                  {item.badge && item.badge > 0 ? (
-                    <span className="ml-1 inline-flex min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] items-center justify-center">
-                      {item.badge}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pos-main-pad-mobile">
               {activeTab === 'products' && renderProductGrid()}
               {activeTab === 'history' && (
                 <SalesHistory
@@ -1036,34 +1040,86 @@ const SellPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="h-[40vh] lg:h-full shrink-0 border-t lg:border-t-0 border-border">
-            <CartPanel
-              cart={cart}
-              salesType={salesType}
-              customer={customer}
-              discountPercentage={discountPercentage}
-              discountAmount={discountAmount}
-              setDiscountPercentage={setDiscountPercentage}
-              setDiscountAmount={setDiscountAmount}
-              setShowCustomerModal={setShowCustomerModal}
-              setShowPaymentModal={setShowPaymentModal}
-              removeFromCart={removeFromCart}
-              updateQuantity={updateQuantity}
-              applyDiscount={applyDiscount}
-              clearCart={clearCart}
-              calculateSubtotal={calculateSubtotal}
-              calculateTotalDiscount={calculateTotalDiscount}
-              calculateTax={calculateTax}
-              calculateTotal={calculateTotal}
-              calculateItemTotal={calculateItemTotal}
-              submitting={submitting}
-              taxRatePercent={taxRatePercent}
-              discountsEnabled={discountsEnabled}
-              quickDiscounts={posSettings.quickDiscounts}
-            />
+          {/* Desktop cart */}
+          <div className="hidden lg:block h-full shrink-0 border-border">
+            <CartPanel {...cartPanelProps} />
           </div>
         </div>
       </div>
+
+      {/* Mobile cart FAB — products tab only */}
+      {activeTab === 'products' && (
+        <button
+          type="button"
+          onClick={() => setShowMobileCart(true)}
+          className="lg:hidden fixed right-4 z-40 pos-cart-fab inline-flex items-center gap-2 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-xl px-4 py-3"
+          aria-label="Open cart"
+        >
+          <ShoppingCart className="w-5 h-5" />
+          <span className="tabular-nums">{cartTotalItems}</span>
+          {cart.length > 0 && (
+            <span className="text-sm font-extrabold">₵{calculateTotal().toFixed(2)}</span>
+          )}
+        </button>
+      )}
+
+      {/* Mobile cart sheet */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45"
+            aria-label="Dismiss cart"
+            onClick={() => setShowMobileCart(false)}
+          />
+          <div className="relative pos-cart-sheet rounded-t-3xl overflow-hidden shadow-2xl bg-card flex flex-col animate-in slide-in-from-bottom">
+            <div className="flex justify-center pt-2 pb-1 shrink-0">
+              <span className="w-10 h-1 rounded-full bg-border" />
+            </div>
+            <CartPanel
+              {...cartPanelProps}
+              onClose={() => setShowMobileCart(false)}
+              className="!w-full !shadow-none !border-0 max-h-[min(88dvh,88vh)]"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile floating liquid-glass bottom navigation */}
+      <nav
+        className="md:hidden liquid-glass-nav liquid-glass-nav-float"
+        aria-label="POS navigation"
+      >
+        <div className="grid grid-cols-5 gap-0.5">
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={`bottom-${item.id}`}
+                type="button"
+                onClick={() => switchTab(item.id)}
+                className={`relative flex flex-col items-center gap-0.5 py-2 rounded-2xl transition-colors ${
+                  isActive ? 'text-orange-500' : 'text-muted-foreground'
+                }`}
+              >
+                <span
+                  className={`relative inline-flex items-center justify-center w-10 h-8 rounded-xl ${
+                    isActive ? 'bg-orange-500/20 shadow-sm' : ''
+                  }`}
+                >
+                  {item.icon}
+                  {item.badge && item.badge > 0 ? (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* Modals */}
       <PaymentModal

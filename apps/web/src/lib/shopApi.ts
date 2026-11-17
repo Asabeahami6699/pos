@@ -29,6 +29,7 @@ async function shopFetch<T>(path: string, options: RequestInit = {}): Promise<T>
     path.includes('/wishlist') ||
     path.includes('/returns') ||
     path.includes('/loyalty') ||
+    path.includes('/notifications') ||
     (path.includes('/push') && !isPublicPush);
 
   // Tracking: optional auth for logged-in customers; guests use ?token=
@@ -408,7 +409,31 @@ export const shopApi = {
       method: 'DELETE',
       body: JSON.stringify(payload),
     }),
+
+  getNotifications: () =>
+    shopFetch<{ success: boolean; data: CustomerNotification[] }>('/api/shop/notifications'),
+
+  getUnreadNotificationCount: () =>
+    shopFetch<{ success: boolean; data: { count: number } }>('/api/shop/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    shopFetch<{ success: boolean }>(`/api/shop/notifications/${id}/read`, { method: 'PATCH' }),
+
+  markAllNotificationsRead: () =>
+    shopFetch<{ success: boolean }>('/api/shop/notifications/read-all', { method: 'POST' }),
 };
+
+export interface CustomerNotification {
+  id: string;
+  customer_id: string;
+  type: string;
+  title: string;
+  body: string;
+  link: string | null;
+  read: boolean;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+}
 
 export interface CustomerAddress {
   id?: string;

@@ -538,22 +538,43 @@ export const AddWarehouseProductModal: React.FC<AddWarehouseProductModalProps> =
 
       if (warehouseError) throw warehouseError;
 
-      const { error: priceHistoryError } = await supabase
-        .from('price_history')
-        .insert([
-          {
-            product_id: productId,
-            company_id: companyId,
-            old_price: 0,
-            new_price: parseFloat(retailPricePerUnit) || 0,
-            change_type: 'retail',
-            changed_by: 'warehouse_admin',
-            changed_at: new Date().toISOString(),
-          },
-        ]);
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
 
-      if (priceHistoryError) {
-        console.warn('Failed to create price history:', priceHistoryError);
+      if (authUser?.id) {
+        const historyRow = {
+          product_id: productId,
+          company_id: companyId,
+          old_price: 0,
+          new_price: parseFloat(retailPricePerUnit) || 0,
+          change_type: 'retail',
+          reason: 'retail',
+          changed_by: authUser.id,
+          quantity_at_change: units,
+        };
+
+        let { error: priceHistoryError } = await supabase
+          .from('price_history')
+          .insert([historyRow]);
+
+        if (priceHistoryError?.code === '42703') {
+          const retry = await supabase.from('price_history').insert([
+            {
+              product_id: productId,
+              company_id: companyId,
+              old_price: 0,
+              new_price: parseFloat(retailPricePerUnit) || 0,
+              changed_by: authUser.id,
+              reason: 'retail',
+            },
+          ]);
+          priceHistoryError = retry.error;
+        }
+
+        if (priceHistoryError) {
+          console.warn('Failed to create price history:', priceHistoryError);
+        }
       }
 
       const { error: notificationError } = await supabase

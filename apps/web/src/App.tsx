@@ -22,6 +22,7 @@ import { AccountPaymentPage } from './pages/shop/account/AccountPaymentPage';
 import { AccountReviewsPage } from './pages/shop/account/AccountReviewsPage';
 import { AccountSettingsPage } from './pages/shop/account/AccountSettingsPage';
 import { AccountInboxPage } from './pages/shop/account/AccountInboxPage';
+import { AccountNotificationsPage } from './pages/shop/account/AccountNotificationsPage';
 import { CustomerOrdersPage } from './pages/shop/CustomerOrdersPage';
 import { ProductDetailPage } from './pages/shop/ProductDetailPage';
 import { CategoriesPage } from './pages/shop/CategoriesPage';
@@ -51,7 +52,7 @@ function App() {
           <Route path="checkout" element={<CheckoutPage />} />
           <Route path="orders" element={<CustomerOrdersPage />} />
           <Route path="account" element={<CustomerAccountPage />} />
-          <Route path="account/notifications" element={<Navigate to="/account/inbox" replace />} />
+          <Route path="account/notifications" element={<AccountNotificationsPage />} />
           <Route path="account/inbox" element={<AccountInboxPage />} />
           <Route path="account/profile" element={<AccountProfilePage />} />
           <Route path="account/orders" element={<AccountOrdersPage />} />

@@ -35,6 +35,7 @@ import {
 } from '../../lib/productDetailContent';
 import { parseCategoryPath } from '../../lib/categoryGroups';
 import { shopRoutes } from '../../lib/roleRedirect';
+import { customerAuthPaths, isSignedInCustomer } from '../../lib/requireCustomerAuth';
 import {
   getDefaultPriceType,
   getPriceForType,
@@ -153,7 +154,7 @@ export const ProductDetailPage: React.FC = () => {
 
   if (!companyId || !productId) return null;
 
-  const handleAdd = (buyNow = false) => {
+  const handleAdd = async (buyNow = false) => {
     if (!product?.in_stock || !company) return;
     const addQty = Math.max(1, qty);
     for (let i = 0; i < addQty; i += 1) {
@@ -170,8 +171,21 @@ export const ProductDetailPage: React.FC = () => {
         category: product.category,
       });
     }
-    if (buyNow) navigate(shopRoutes.checkout);
-    else toast.success('Added to cart');
+    if (buyNow) {
+      const ok = await isSignedInCustomer();
+      if (!ok) {
+        const { login } = customerAuthPaths(shopRoutes.checkout);
+        toast.error('Sign in required', {
+          description: 'Sign in or create an account before you can buy.',
+          action: { label: 'Sign in', onClick: () => navigate(login) },
+        });
+        navigate(login);
+        return;
+      }
+      navigate(shopRoutes.checkout);
+      return;
+    }
+    toast.success('Added to cart');
   };
 
   if (loadingDetail && !product) {

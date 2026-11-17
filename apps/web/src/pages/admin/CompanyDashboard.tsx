@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AdjustableSidebar } from '../../components/admin/AdjustableSidebar';
+import { api, type AdminOnlineOrder } from '../../lib/api';
 
 // Import Tab Components
 import { OverviewTab } from '../../components/admin/dashboard-tabs/OverviewTab';
@@ -308,6 +309,42 @@ const CompanyDashboard: React.FC = () => {
   }, [companyId, userName, userRole]);
 
   // =========== REAL-TIME SUBSCRIPTIONS ===========
+  const [pendingOnlineOrders, setPendingOnlineOrders] = useState<AdminOnlineOrder[]>([]);
+  const pendingOnlineOrderCountRef = useRef(0);
+  const onlineOrdersHydratedRef = useRef(false);
+
+  const fetchPendingOnlineOrders = useCallback(async () => {
+    if (!companyId) return;
+    try {
+      const res = await api.getAdminOnlineOrders('pending');
+      const next = res.data ?? [];
+      const prevCount = pendingOnlineOrderCountRef.current;
+      if (onlineOrdersHydratedRef.current && next.length > prevCount) {
+        const newest = next[0];
+        toast.info('New online order', {
+          description: newest
+            ? `${newest.shipping_name || 'Customer'} · ₵${Number(newest.total ?? 0).toFixed(2)}`
+            : 'A customer just placed an order',
+          action: {
+            label: 'Open',
+            onClick: () => setActiveTab('online-orders'),
+          },
+        });
+      }
+      onlineOrdersHydratedRef.current = true;
+      pendingOnlineOrderCountRef.current = next.length;
+      setPendingOnlineOrders(next);
+    } catch {
+      /* non-blocking */
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    if (companyId && dataInitialized) {
+      void fetchPendingOnlineOrders();
+    }
+  }, [companyId, dataInitialized, fetchPendingOnlineOrders]);
+
   useRealtimeSubscriptions(
     companyId,
     {
@@ -331,6 +368,9 @@ const CompanyDashboard: React.FC = () => {
       onNotificationsChange: () => companyId && fetchNotifications(),
       onPriceHistoryChange: () => companyId && fetchPriceHistory(),
       onAllocationsChange: () => companyId && fetchAllocations(),
+      onOnlineOrdersChange: () => {
+        void fetchPendingOnlineOrders();
+      },
     },
     dataInitialized
   );
@@ -567,7 +607,7 @@ const CompanyDashboard: React.FC = () => {
   const handleFullRefresh = async () => {
     try {
       setRefreshing(true);
-      await refreshData();
+      await Promise.all([refreshData(), fetchPendingOnlineOrders()]);
       toast.success('Dashboard data refreshed');
     } catch (error: any) {
       console.error('Refresh error:', error);
@@ -801,6 +841,7 @@ const CompanyDashboard: React.FC = () => {
         onLogout={handleLogout}
         companyName={companyName}
         notificationCount={notifications.filter((n) => !n.read).length}
+        onlineOrderCount={pendingOnlineOrders.length}
         userName={userName}
         userRole={isActingAsTenant ? 'super_admin (tenant)' : userRole}
         inventoryModel={inventoryModel}
@@ -808,8 +849,8 @@ const CompanyDashboard: React.FC = () => {
         refreshing={refreshing}
       />
 
-      <div className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6">
-        <main className="max-w-6xl mx-auto">
+      <div className="flex-1 min-w-0 overflow-y-auto p-4 pt-16 md:pt-6 md:p-6 safe-area-pb">
+        <main className="max-w-6xl mx-auto w-full min-w-0">
           {subscription && <SubscriptionBanner subscription={subscription} />}
 
           {activeTab === 'overview' && (
@@ -822,6 +863,7 @@ const CompanyDashboard: React.FC = () => {
               branchCount={branches.length}
               staffCount={staff.length}
               restockRequests={restockRequests}
+              pendingOnlineOrders={pendingOnlineOrders}
               setProcessingRequest={setProcessingRequest}
               setIsProcessRestockModalOpen={setIsProcessRestockModalOpen}
               setIsAddWarehouseProductModalOpen={setIsAddWarehouseProductModalOpen}
@@ -834,7 +876,6 @@ const CompanyDashboard: React.FC = () => {
                 resetAudience('admin');
                 startTour('admin', { inventoryModel, force: true });
               }}
-              refreshing={refreshing}
             />
           )}
 

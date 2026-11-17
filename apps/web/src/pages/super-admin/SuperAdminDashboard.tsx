@@ -452,7 +452,7 @@ const SuperAdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen page-shell overflow-hidden">
+    <div className="flex pos-mobile-shell page-shell overflow-hidden">
       {/* Dark icon sidebar — same language as POS */}
       <aside className="hidden md:flex w-[88px] shrink-0 flex-col items-center py-5 bg-[hsl(222_47%_11%)] text-white">
         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center font-extrabold text-sm shadow-lg mb-6">

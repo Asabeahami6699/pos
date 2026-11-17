@@ -43,7 +43,7 @@ const CONTENT: Record<string, { title: string; sections: Array<{ heading: string
     sections: [
       {
         heading: 'Do I need an account?',
-        body: 'You can browse freely. Guest checkout is available for pay-on-delivery. Create an account to save addresses, track all orders, and earn loyalty points.',
+        body: 'You can browse freely. Sign in or create an account before checkout so we can save your addresses, track orders, and process payment securely.',
       },
       {
         heading: 'Can I order from multiple stores?',

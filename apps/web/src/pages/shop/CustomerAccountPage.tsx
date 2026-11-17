@@ -10,13 +10,21 @@ import {
   ChevronRight,
   Inbox,
   Pencil,
+  Bell,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useCustomerSession } from '../../hooks/shop/useCustomerSession';
+import { useCustomerNotifications } from '../../hooks/shop/useCustomerNotifications';
 import { Button } from '../../components/Button';
 import { useOnboardingTourStore } from '../../stores/onboardingTourStore';
 
 const NAV_ITEMS = [
+  {
+    to: '/account/notifications',
+    label: 'Notifications',
+    description: 'Order updates & tracking',
+    icon: Bell,
+  },
   { to: '/account/inbox', label: 'Inbox', description: 'Messages with sellers', icon: Inbox },
   { to: '/account/orders', label: 'Orders', description: 'Track & return purchases', icon: Package },
   { to: '/account/addresses', label: 'Addresses', description: 'Delivery locations', icon: MapPin },
@@ -34,6 +42,7 @@ function profileInitials(name: string): string {
 
 export const CustomerAccountPage: React.FC = () => {
   const { loading, signedIn, profile } = useCustomerSession();
+  const { unreadCount } = useCustomerNotifications();
   const resetAudience = useOnboardingTourStore((s) => s.resetAudience);
   const startTour = useOnboardingTourStore((s) => s.startTour);
 
@@ -108,12 +117,21 @@ export const CustomerAccountPage: React.FC = () => {
             to={to}
             className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/80"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
               <Icon className="w-4 h-4" />
+              {to === '/account/notifications' && unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-md bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </span>
             <span className="flex-1 min-w-0">
               <span className="block text-sm font-medium text-foreground">{label}</span>
-              <span className="block text-[11px] text-muted-foreground truncate">{description}</span>
+              <span className="block text-[11px] text-muted-foreground truncate">
+                {to === '/account/notifications' && unreadCount > 0
+                  ? `${unreadCount} unread order update${unreadCount === 1 ? '' : 's'}`
+                  : description}
+              </span>
             </span>
             <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground/60" />
           </Link>

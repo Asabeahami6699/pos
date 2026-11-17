@@ -316,7 +316,13 @@ marketplaceFeaturesRouter.get('/recommendations/recent', async (req, res) => {
     const stockMap = await fetchSellableStockMap(supabase, companyIds);
     const products = [];
     for (const v of unique.values()) {
-      const { data: p } = await supabase.from('products').select('*').eq('id', v.product_id).single();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = supabase.from('products').select('*').eq('id', v.product_id);
+      let { data: p, error } = await q.eq('is_online_listing', true).maybeSingle();
+      if (error && String(error.message || '').includes('is_online_listing')) {
+        const retry = await supabase.from('products').select('*').eq('id', v.product_id).maybeSingle();
+        p = retry.data;
+      }
       if (!p) continue;
       const stock = stockForProduct(stockMap, v.company_id, v.product_id);
       products.push({
@@ -344,7 +350,8 @@ marketplaceFeaturesRouter.get('/recommendations/related/:companyId/:productId', 
       .eq('company_id', companyId)
       .single();
 
-    let query = supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase
       .from('products')
       .select('*')
       .eq('company_id', companyId)
@@ -353,9 +360,21 @@ marketplaceFeaturesRouter.get('/recommendations/related/:companyId/:productId', 
 
     if (product?.category) query = query.eq('category', product.category);
 
-    const { data } = await query;
+    let { data, error: relatedError } = await query.eq('is_online_listing', true);
+    if (relatedError && String(relatedError.message || '').includes('is_online_listing')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let fallback: any = supabase
+        .from('products')
+        .select('*')
+        .eq('company_id', companyId)
+        .neq('id', productId)
+        .limit(6);
+      if (product?.category) fallback = fallback.eq('category', product.category);
+      const retry = await fallback;
+      data = retry.data;
+    }
     const stockMap = await fetchSellableStockMap(supabase, [companyId]);
-    const enriched = (data ?? []).map((p) => {
+    const enriched = ((data ?? []) as Array<Record<string, unknown> & { id: string }>).map((p) => {
       const stock = stockForProduct(stockMap, companyId, p.id);
       return { ...p, stock, in_stock: stock > 0 };
     });
