@@ -588,13 +588,44 @@ marketplaceFeaturesRouter.get('/orders/:orderId/tracking', async (req, res) => {
     const { data: order, error } = await orderQuery.single();
     if (error || !order) return res.status(404).json({ success: false, error: 'Order not found' });
 
+    const orderRow = order as {
+      online_order_items?: Array<{ product_id: string; [key: string]: unknown }>;
+      [key: string]: unknown;
+    };
+    const items = orderRow.online_order_items ?? [];
+    const productIds = [...new Set(items.map((i) => i.product_id).filter(Boolean))];
+    if (productIds.length > 0) {
+      const imageByProduct = new Map<string, string>();
+      const { data: products } = await db(supabase)
+        .from('products')
+        .select('id, image_url')
+        .in('id', productIds);
+      for (const p of products ?? []) {
+        if (p.image_url) imageByProduct.set(String(p.id), String(p.image_url));
+      }
+      const { data: media } = await db(supabase)
+        .from('product_media')
+        .select('product_id, url')
+        .in('product_id', productIds)
+        .eq('media_type', 'image')
+        .order('sort_order', { ascending: true });
+      for (const m of media ?? []) {
+        const pid = String(m.product_id);
+        if (!imageByProduct.has(pid) && m.url) imageByProduct.set(pid, String(m.url));
+      }
+      orderRow.online_order_items = items.map((item) => ({
+        ...item,
+        image_url: imageByProduct.get(item.product_id) ?? null,
+      }));
+    }
+
     const { data: events } = await db(supabase)
       .from('order_tracking_events')
       .select('*')
       .eq('order_id', orderId)
       .order('created_at', { ascending: true });
 
-    return res.json({ success: true, data: { order, events: events ?? [] } });
+    return res.json({ success: true, data: { order: orderRow, events: events ?? [] } });
   } catch (error) {
     return res.status(500).json({ success: false, error: getErrorMessage(error, 'Failed') });
   }

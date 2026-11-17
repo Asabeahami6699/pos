@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, RefreshCw } from 'lucide-react';
 import { shopApi } from '../../lib/shopApi';
 import { SeoHead } from '../../components/shop/SeoHead';
+import { ProductImage } from '../../components/shop/ProductImage';
 import { Button } from '../../components/Button';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -21,6 +22,7 @@ type TrackingData = {
       product_name: string;
       quantity: number;
       unit_price: number;
+      image_url?: string | null;
     }>;
   };
   events: Array<Record<string, unknown>>;
@@ -91,13 +93,25 @@ export const OrderTrackPage: React.FC = () => {
               </p>
             )}
             {items.length > 0 && (
-              <ul className="text-xs text-muted-foreground border-t border-border pt-2 space-y-0.5">
+              <ul className="text-xs text-muted-foreground border-t border-border pt-2 space-y-2">
                 {items.map((item, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span>
-                      {item.product_name} × {item.quantity}
+                  <li key={i} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="w-9 h-9 rounded-md border border-border bg-secondary overflow-hidden shrink-0 flex items-center justify-center">
+                        <ProductImage
+                          imageUrl={item.image_url}
+                          name={item.product_name}
+                          className="w-full h-full object-cover"
+                          iconClassName="text-xs opacity-40"
+                        />
+                      </span>
+                      <span className="truncate">
+                        {item.product_name} × {item.quantity}
+                      </span>
                     </span>
-                    <span className="tabular-nums">₵{(item.unit_price * item.quantity).toFixed(2)}</span>
+                    <span className="tabular-nums shrink-0">
+                      ₵{(item.unit_price * item.quantity).toFixed(2)}
+                    </span>
                   </li>
                 ))}
               </ul>

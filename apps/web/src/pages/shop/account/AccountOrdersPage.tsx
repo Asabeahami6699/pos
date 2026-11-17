@@ -24,7 +24,11 @@ export const AccountOrdersPage: React.FC = () => {
   }
 
   return (
-    <AccountSectionLayout title="My orders">
+    <AccountSectionLayout
+      title="My orders"
+      subtitle="Select an order to review item quantities, totals, and tracking."
+      wide
+    >
       <CustomerOrdersPanel embedded />
     </AccountSectionLayout>
   );

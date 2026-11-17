@@ -122,29 +122,66 @@ async function attachOrderItemBarcodes(
   }
   if (productIds.size === 0) return orders;
 
+  const idList = [...productIds];
+
   let { data: products, error } = await db(supabase)
     .from('products')
-    .select('id, sku, barcode')
-    .in('id', [...productIds]);
+    .select('id, sku, barcode, image_url')
+    .in('id', idList);
 
-  if (error && isMissingColumnError(error, 'barcode')) {
+  if (error && (isMissingColumnError(error, 'barcode') || isMissingColumnError(error, 'image_url'))) {
     const fallback = await db(supabase)
       .from('products')
-      .select('id, sku')
-      .in('id', [...productIds]);
-    products = (fallback.data ?? []).map((p: { id: string; sku: string | null }) => ({
-      ...p,
-      barcode: null,
-    }));
-    error = fallback.error;
+      .select('id, sku, image_url')
+      .in('id', idList);
+    if (fallback.error && isMissingColumnError(fallback.error, 'image_url')) {
+      const minimal = await db(supabase).from('products').select('id, sku').in('id', idList);
+      products = (minimal.data ?? []).map((p: { id: string; sku: string | null }) => ({
+        ...p,
+        barcode: null,
+        image_url: null,
+      }));
+      error = minimal.error;
+    } else {
+      products = (fallback.data ?? []).map(
+        (p: { id: string; sku: string | null; image_url?: string | null }) => ({
+          ...p,
+          barcode: null,
+          image_url: p.image_url ?? null,
+        }),
+      );
+      error = fallback.error;
+    }
   }
   if (error) throw error;
 
+  const mediaMap = new Map<string, string>();
+  try {
+    const { data: media } = await db(supabase)
+      .from('product_media')
+      .select('product_id, url, media_type, sort_order')
+      .in('product_id', idList)
+      .eq('media_type', 'image')
+      .order('sort_order', { ascending: true });
+    for (const row of media ?? []) {
+      const pid = String((row as { product_id: string }).product_id);
+      if (!mediaMap.has(pid) && (row as { url?: string }).url) {
+        mediaMap.set(pid, String((row as { url: string }).url));
+      }
+    }
+  } catch {
+    /* product_media optional */
+  }
+
   const productMap = new Map(
-    (products ?? []).map((p: { id: string; sku?: string | null; barcode?: string | null }) => [
-      p.id,
-      p,
-    ]),
+    (products ?? []).map(
+      (p: {
+        id: string;
+        sku?: string | null;
+        barcode?: string | null;
+        image_url?: string | null;
+      }) => [p.id, p],
+    ),
   );
 
   return orders.map((order) => {
@@ -152,11 +189,13 @@ async function attachOrderItemBarcodes(
     return {
       ...order,
       online_order_items: items.map((item) => {
-        const product = productMap.get(String(item.product_id ?? ''));
+        const productId = String(item.product_id ?? '');
+        const product = productMap.get(productId);
         return {
           ...item,
           barcode: product?.barcode ?? null,
           sku: product?.sku ?? (item.sku as string | null | undefined) ?? null,
+          image_url: mediaMap.get(productId) ?? product?.image_url ?? null,
         };
       }),
     };
@@ -1158,7 +1197,11 @@ shopRouter.get('/orders', requireAuth, async (req: AuthenticatedRequest, res) =>
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return res.json({ success: true, data: data ?? [] });
+    const enriched = await attachOrderItemBarcodes(
+      supabase,
+      (data ?? []) as Array<Record<string, unknown>>,
+    );
+    return res.json({ success: true, data: enriched });
   } catch (error) {
     return res.status(500).json({
       success: false,

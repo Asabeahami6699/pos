@@ -4,6 +4,11 @@ export interface CustomerOrderItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  unit_price?: number;
+  total_price?: number;
+  sku?: string | null;
+  barcode?: string | null;
+  image_url?: string | null;
 }
 
 export interface CustomerOrder {
@@ -14,6 +19,12 @@ export interface CustomerOrder {
   fulfillment_type?: string;
   payment_method?: string;
   payment_status?: string;
+  shipping_name?: string | null;
+  shipping_phone?: string | null;
+  shipping_address?: string | null;
+  tracking_number?: string | null;
+  carrier_name?: string | null;
+  notes?: string | null;
   created_at: string;
   companies?: { name: string };
   online_order_items?: CustomerOrderItem[];

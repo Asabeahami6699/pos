@@ -72,8 +72,13 @@ export const CustomerOrdersPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <h1 className="text-xl font-bold text-foreground">My orders</h1>
+    <div className="max-w-5xl mx-auto space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-foreground">My orders</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Select an order to review item quantities, totals, and tracking.
+        </p>
+      </div>
       <CustomerOrdersPanel />
     </div>
   );
