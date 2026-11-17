@@ -173,15 +173,15 @@ async function attachOrderItemBarcodes(
     /* product_media optional */
   }
 
-  const productMap = new Map(
-    (products ?? []).map(
-      (p: {
-        id: string;
-        sku?: string | null;
-        barcode?: string | null;
-        image_url?: string | null;
-      }) => [p.id, p],
-    ),
+  type ProductEnrichRow = {
+    id: string;
+    sku?: string | null;
+    barcode?: string | null;
+    image_url?: string | null;
+  };
+
+  const productMap = new Map<string, ProductEnrichRow>(
+    (products ?? []).map((p: ProductEnrichRow) => [p.id, p]),
   );
 
   return orders.map((order) => {
