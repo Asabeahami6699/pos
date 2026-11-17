@@ -17,6 +17,7 @@ import { NotificationsTab } from '../../components/admin/dashboard-tabs/Notifica
 import { SettingsTab } from '../../components/admin/dashboard-tabs/SettingsTab';
 import { UserGuideTab } from '../../components/admin/dashboard-tabs/UserGuideTab';
 import { AnalyticsTab } from '../../components/admin/dashboard-tabs/AnalyticsTab';
+import { ProfitTab } from '../../components/admin/dashboard-tabs/ProfitTab';
 import { OnlineOrdersTab } from '../../components/admin/dashboard-tabs/OnlineOrdersTab';
 import { CustomerChatTab } from '../../components/admin/dashboard-tabs/CustomerChatTab';
 import { AnalyticsRealtimeBridge } from '../../components/admin/AnalyticsRealtimeBridge';
@@ -78,6 +79,7 @@ type ActiveTab =
   | 'price-history'
   | 'notifications'
   | 'analytics'
+  | 'profit'
   | 'settings'
   | 'settings-profile'
   | 'settings-pos'
@@ -1010,6 +1012,10 @@ const CompanyDashboard: React.FC = () => {
 
           {activeTab === 'analytics' && companyId && (
             <AnalyticsTab companyId={companyId} />
+          )}
+
+          {activeTab === 'profit' && companyId && (
+            <ProfitTab companyId={companyId} />
           )}
 
           {activeTab === 'notifications' && (

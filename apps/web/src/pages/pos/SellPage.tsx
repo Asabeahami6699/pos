@@ -521,11 +521,11 @@ const SellPage: React.FC = () => {
     icon: React.ReactNode;
     badge?: number;
   }> = [
-    { id: 'products', label: 'POS', icon: <LayoutGrid className="w-5 h-5" /> },
-    { id: 'history', label: 'Sales', icon: <ShoppingBag className="w-5 h-5" /> },
-    { id: 'restock', label: 'Stock', icon: <Package className="w-5 h-5" />, badge: pendingRestockCount },
-    { id: 'returns', label: 'Returns', icon: <RotateCcw className="w-5 h-5" />, badge: pendingReturnsCount },
-    { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-5 h-5" /> },
+    { id: 'products', label: 'POS', icon: <LayoutGrid className="w-4 h-4" /> },
+    { id: 'history', label: 'Sales', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'restock', label: 'Stock', icon: <Package className="w-4 h-4" />, badge: pendingRestockCount },
+    { id: 'returns', label: 'Returns', icon: <RotateCcw className="w-4 h-4" />, badge: pendingReturnsCount },
+    { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
   ];
 
   // Render Product Grid
@@ -1098,12 +1098,12 @@ const SellPage: React.FC = () => {
                 key={`bottom-${item.id}`}
                 type="button"
                 onClick={() => switchTab(item.id)}
-                className={`relative flex flex-col items-center gap-0.5 py-2 rounded-2xl transition-colors ${
+                className={`relative flex flex-col items-center gap-0 py-1 rounded-xl transition-colors ${
                   isActive ? 'text-orange-500' : 'text-muted-foreground'
                 }`}
               >
                 <span
-                  className={`relative inline-flex items-center justify-center w-10 h-8 rounded-xl ${
+                  className={`relative inline-flex items-center justify-center w-9 h-7 rounded-lg ${
                     isActive ? 'bg-orange-500/20 shadow-sm' : ''
                   }`}
                 >
@@ -1114,7 +1114,7 @@ const SellPage: React.FC = () => {
                     </span>
                   ) : null}
                 </span>
-                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+                <span className="text-[9px] font-semibold leading-tight">{item.label}</span>
               </button>
             );
           })}

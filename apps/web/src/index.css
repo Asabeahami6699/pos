@@ -10,11 +10,21 @@
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
-    --shop-bottom-nav-height: calc(4.25rem + var(--safe-bottom));
-    --shop-bottom-nav-gap: 1.25rem;
+    /* Visual bar height (20% shorter than 4.25rem); safe-area added in offset */
+    --shop-bottom-nav-height: 3.4rem;
+    --shop-bottom-nav-gap: 2.5rem;
     --shop-bottom-nav-float: 0.75rem;
     --shop-bottom-nav-offset: calc(
-      var(--shop-bottom-nav-height) + var(--shop-bottom-nav-gap) + var(--shop-bottom-nav-float)
+      var(--shop-bottom-nav-height) + var(--shop-bottom-nav-gap) + var(--shop-bottom-nav-float) +
+        var(--safe-bottom)
+    );
+    /* Sticky product CTA sits above the float nav */
+    --shop-product-cta-height: 3.75rem;
+    --shop-product-cta-bottom: calc(
+      var(--shop-bottom-nav-height) + var(--shop-bottom-nav-float) + var(--safe-bottom) + 0.5rem
+    );
+    --shop-product-detail-offset: calc(
+      var(--shop-bottom-nav-offset) + var(--shop-product-cta-height) + 0.5rem
     );
     --background: 220 18% 94%;
     --foreground: 222 47% 11%;
@@ -205,8 +215,45 @@
     right: max(0.75rem, var(--safe-right));
     bottom: calc(var(--shop-bottom-nav-float) + var(--safe-bottom));
     z-index: 40;
-    border-radius: 1.35rem;
-    padding: 0.35rem 0.4rem;
+    border-radius: 1.2rem;
+    padding: 0.2rem 0.3rem;
+    min-height: var(--shop-bottom-nav-height);
+    display: flex;
+    align-items: center;
+  }
+
+  .liquid-glass-nav-float > * {
+    width: 100%;
+  }
+
+  /* Shop mobile: reserved dock so content never scrolls under the nav */
+  .shop-nav-dock {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
+    .shop-nav-dock {
+      display: block;
+      flex-shrink: 0;
+      z-index: 40;
+      padding: 0.45rem 0.75rem;
+      padding-bottom: calc(0.45rem + var(--safe-bottom));
+      background: transparent;
+      pointer-events: none;
+    }
+
+    .shop-nav-dock > nav {
+      pointer-events: auto;
+      border-radius: 1.2rem;
+      padding: 0.2rem 0.3rem;
+      min-height: var(--shop-bottom-nav-height);
+      display: flex;
+      align-items: center;
+    }
+
+    .shop-nav-dock > nav > * {
+      width: 100%;
+    }
   }
 
   .pos-bottom-nav {
@@ -268,6 +315,28 @@
     padding-top: calc(0.75rem + var(--safe-top));
   }
 
+  /* Account pages — purple-blue safe-area strip + light header (not a blue page wash) */
+  .account-safe-header {
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    border-bottom: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 0 hsl(var(--border) / 0.6);
+  }
+
+  .account-safe-pad {
+    height: max(var(--safe-top), 0.55rem);
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary)) 0%,
+      hsl(239 84% 52%) 55%,
+      hsl(var(--accent)) 100%
+    );
+  }
+
+  .account-shell {
+    background: hsl(var(--background));
+  }
+
   .safe-area-pb {
     padding-bottom: calc(0.5rem + var(--safe-bottom));
   }
@@ -285,13 +354,34 @@
     padding-bottom: var(--shop-bottom-nav-offset);
   }
 
+  /* Dedicated spacer inside scroll containers (more reliable than flex padding) */
+  .shop-bottom-nav-spacer {
+    display: block;
+    width: 100%;
+    flex-shrink: 0;
+    height: var(--shop-bottom-nav-offset);
+    pointer-events: none;
+  }
+
   /* Inner scroll panels (e.g. categories) — main padding does not scroll with content */
   .shop-scroll-bottom-pad {
     padding-bottom: var(--shop-bottom-nav-offset);
   }
 
+  .shop-product-detail-pb {
+    padding-bottom: var(--shop-product-detail-offset);
+  }
+
+  .shop-product-cta-bar {
+    position: sticky;
+    bottom: 0.5rem;
+    z-index: 20;
+    margin-top: 0.75rem;
+  }
+
   .shop-fab-bottom {
-    bottom: calc(var(--shop-bottom-nav-height) + 0.75rem);
+    /* Above shop-nav-dock (~ nav height + dock padding) */
+    bottom: calc(var(--shop-bottom-nav-height) + 1.5rem + var(--safe-bottom));
   }
 
   @media (min-width: 768px) {
@@ -299,8 +389,20 @@
       padding-bottom: 1.5rem;
     }
 
+    .shop-bottom-nav-spacer {
+      display: none;
+    }
+
     .shop-scroll-bottom-pad {
       padding-bottom: 0;
+    }
+
+    .shop-product-detail-pb {
+      padding-bottom: 0;
+    }
+
+    .shop-product-cta-bar {
+      display: none;
     }
 
     .shop-fab-bottom {

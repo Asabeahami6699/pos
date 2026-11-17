@@ -45,6 +45,7 @@ import {
   type ShopPriceType,
 } from '../../lib/shopProductPricing';
 import { Button } from '../../components/Button';
+import { useShopChatUiStore } from '../../stores/shopChatUiStore';
 import { toast } from 'sonner';
 
 type DetailTab = 'description' | 'specifications' | 'reviews';
@@ -218,7 +219,7 @@ export const ProductDetailPage: React.FC = () => {
       : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-2">
       <SeoHead title={product.name} description={about.slice(0, 160)} />
 
       <nav className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">
@@ -384,7 +385,7 @@ export const ProductDetailPage: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="hidden sm:grid grid-cols-2 gap-2">
             <Button
               fullWidth
               size="lg"
@@ -462,9 +463,10 @@ export const ProductDetailPage: React.FC = () => {
             fullWidth
             variant="secondary"
             className="!rounded-xl"
-            onClick={() =>
-              navigate(shopRoutes.chatRoom(companyId), { state: { companyName: company.name } })
-            }
+            onClick={() => {
+              if (!companyId) return;
+              useShopChatUiStore.getState().openRoom(companyId, company.name);
+            }}
           >
             <MessageCircle className="w-4 h-4 mr-2 inline" />
             Chat with seller
@@ -636,6 +638,34 @@ export const ProductDetailPage: React.FC = () => {
           </div>
         </section>
       )}
+
+      {/* Mobile purchase bar — sticky inside scroll area, above reserved nav dock */}
+      <div className="shop-product-cta-bar liquid-glass-nav rounded-2xl p-2 shadow-lg sm:hidden">
+        <div className="flex items-center gap-2">
+          <p className="shrink-0 text-sm font-extrabold text-primary tabular-nums px-1">
+            ₵{selectedPrice.toFixed(2)}
+          </p>
+          <Button
+            fullWidth
+            size="sm"
+            className="!rounded-xl"
+            onClick={() => handleAdd(false)}
+            disabled={!product.in_stock}
+          >
+            Add to cart
+          </Button>
+          <Button
+            fullWidth
+            size="sm"
+            variant="secondary"
+            className="!rounded-xl !border-primary !text-primary"
+            onClick={() => handleAdd(true)}
+            disabled={!product.in_stock}
+          >
+            Buy now
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

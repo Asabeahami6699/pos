@@ -24,10 +24,10 @@ export const AccountInboxPage: React.FC = () => {
   }
 
   return (
-    <AccountSectionLayout title="Inbox">
-      <p className="text-xs text-muted-foreground -mt-2 mb-2">
-        Encrypted conversations with sellers.
-      </p>
+    <AccountSectionLayout
+      title="Inbox"
+      subtitle="Encrypted conversations with sellers"
+    >
       <CustomerInboxList />
     </AccountSectionLayout>
   );

@@ -60,15 +60,33 @@ export const AccountAddressesPage: React.FC = () => {
   };
 
   return (
-    <AccountSectionLayout title="Addresses">
-      <div className="space-y-3">
-        {addresses.map((a) => (
-          <div key={a.id} className="glass-card p-3 text-sm">
-            <p className="font-semibold">{a.label}</p>
-            <p className="text-muted-foreground text-xs mt-1">{a.address_line}</p>
-          </div>
-        ))}
-        <div className="glass-card p-4 space-y-2">
+    <AccountSectionLayout
+      title="Addresses"
+      subtitle="Delivery locations for checkout"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="space-y-3">
+          {addresses.length === 0 ? (
+            <div className="glass-card p-6 text-sm text-muted-foreground">
+              No saved addresses yet.
+            </div>
+          ) : (
+            addresses.map((a) => (
+              <div key={a.id} className="glass-card p-4 text-sm">
+                <p className="font-semibold">{a.label}</p>
+                <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                  {a.address_line}
+                </p>
+                {(a.city || a.region) && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {[a.city, a.region].filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="glass-card p-4 sm:p-5 space-y-3">
           <p className="text-sm font-semibold">Add address</p>
           <Input
             label="Label"

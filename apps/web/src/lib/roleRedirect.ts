@@ -32,6 +32,7 @@ export const shopRoutes = {
   checkout: '/checkout',
   orders: '/orders',
   account: '/account',
+  inbox: '/account/inbox',
   notifications: '/account/notifications',
   chat: '/chat',
   chatRoom: (companyId: string) => `/chat/${companyId}`,

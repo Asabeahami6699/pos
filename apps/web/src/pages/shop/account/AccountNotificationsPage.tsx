@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Package, RotateCcw, MessageCircle } from 'lucide-react';
 import { Button } from '../../../components/Button';
+import { AccountSectionLayout } from '../../../components/shop/AccountSectionLayout';
 import { useCustomerNotifications } from '../../../hooks/shop/useCustomerNotifications';
 import { shopRoutes } from '../../../lib/roleRedirect';
 
@@ -18,42 +19,44 @@ export const AccountNotificationsPage: React.FC = () => {
 
   if (!signedIn && !loading) {
     return (
-      <div className="max-w-md mx-auto glass-card p-8 text-center space-y-3">
-        <Bell className="w-8 h-8 text-primary mx-auto" />
-        <h1 className="text-lg font-bold text-foreground">Notifications</h1>
-        <p className="text-sm text-muted-foreground">
-          Sign in to get alerts when your orders are updated.
-        </p>
-        <Link to={shopRoutes.customerLogin('/account/notifications')}>
-          <Button>Sign in</Button>
-        </Link>
-      </div>
+      <AccountSectionLayout title="Notifications">
+        <div className="glass-card p-8 text-center space-y-3 max-w-md mx-auto">
+          <Bell className="w-8 h-8 text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">
+            Sign in to get alerts when your orders are updated.
+          </p>
+          <Link to={shopRoutes.customerLogin('/account/notifications')}>
+            <Button>Sign in</Button>
+          </Link>
+        </div>
+      </AccountSectionLayout>
     );
   }
 
   if (loading && notifications.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground animate-pulse text-sm">Loading…</div>
+      <AccountSectionLayout title="Notifications">
+        <div className="text-center py-12 text-muted-foreground animate-pulse text-sm">Loading…</div>
+      </AccountSectionLayout>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-4 px-3 sm:px-0 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Notifications</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Order updates, tracking, and returns
-            {unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
-          </p>
-        </div>
-        {unreadCount > 0 && (
+    <AccountSectionLayout
+      title="Notifications"
+      subtitle={
+        unreadCount > 0
+          ? `Order updates, tracking, and returns · ${unreadCount} unread`
+          : 'Order updates, tracking, and returns'
+      }
+      actions={
+        unreadCount > 0 ? (
           <Button variant="secondary" size="sm" onClick={() => void markAllRead()}>
             Mark all read
           </Button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {notifications.length === 0 ? (
         <div className="glass-card p-8 text-center space-y-2">
           <Bell className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
@@ -63,14 +66,14 @@ export const AccountNotificationsPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {notifications.map((n) => {
             const Icon = typeIcon(n.type);
             return (
               <li key={n.id}>
                 <button
                   type="button"
-                  className={`w-full text-left glass-card p-3 transition-colors hover:bg-secondary/40 ${
+                  className={`w-full text-left glass-card p-4 transition-colors hover:bg-secondary/40 h-full ${
                     n.read ? '' : 'border-primary/25 bg-primary/5'
                   }`}
                   onClick={() => {
@@ -101,6 +104,6 @@ export const AccountNotificationsPage: React.FC = () => {
           })}
         </ul>
       )}
-    </div>
+    </AccountSectionLayout>
   );
 };

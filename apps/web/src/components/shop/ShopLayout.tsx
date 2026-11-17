@@ -73,10 +73,9 @@ export const ShopLayout: React.FC = () => {
   useAbandonedCartSync(syncEmail);
 
   const isChatRoom = location.pathname.startsWith('/chat');
-  const isAccountSubPage =
-    location.pathname.startsWith('/account/') && location.pathname !== '/account';
-  const hideShopChrome = isAccountSubPage;
-  const hideFloatingChat = isChatRoom || location.pathname.startsWith('/product/') || isAccountSubPage;
+  const isAccountArea = location.pathname.startsWith('/account');
+  const hideShopChrome = isAccountArea;
+  const hideFloatingChat = isChatRoom;
 
   const navItems = useMemo(() => {
     return [
@@ -248,9 +247,9 @@ export const ShopLayout: React.FC = () => {
         className={`flex-1 w-full mx-auto min-h-0 max-md:overflow-y-auto flex flex-col ${
           isChatRoom
             ? 'p-0 max-w-none max-md:overflow-hidden'
-            : isAccountSubPage
-              ? 'max-w-6xl py-2 safe-area-px safe-area-pb safe-area-pt'
-              : 'max-w-6xl py-3 safe-area-px shop-mobile-main-pb'
+            : isAccountArea
+              ? 'max-w-none w-full p-0'
+              : 'max-w-6xl py-3 safe-area-px'
         }`}
       >
         <div className="flex-1 min-h-0 flex flex-col w-full">
@@ -313,37 +312,36 @@ export const ShopLayout: React.FC = () => {
         }}
       />
 
-      {!isChatRoom && !hideShopChrome && (
-        <nav
-          className="md:hidden liquid-glass-nav liquid-glass-nav-float"
-          aria-label="Marketplace navigation"
-        >
-          <div className="flex justify-around gap-0.5">
-            {navItems.map(({ to, label, icon: Icon, badge, tourId }) => {
-              const active = isNavActive(location.pathname, to);
-              return (
-                <Link
-                  key={to}
-                  to={to}
-                  data-tour={tourId}
-                  className={`relative flex flex-col items-center gap-0.5 px-2 py-2 text-[10px] min-w-0 flex-1 rounded-2xl transition-colors ${
-                    active
-                      ? 'text-primary font-semibold bg-primary/10'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  <Icon className="w-5 h-5 shrink-0" />
-                  <span className="truncate max-w-full">{label}</span>
-                  {badge ? (
-                    <span className="absolute top-1 right-2 bg-primary text-primary-foreground text-[9px] font-bold min-w-[16px] h-4 rounded-md flex items-center justify-center px-1">
-                      {badge}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+      {!isChatRoom && (
+        <div className="shop-nav-dock md:hidden">
+          <nav className="liquid-glass-nav" aria-label="Marketplace navigation">
+            <div className="flex justify-around gap-0.5">
+              {navItems.map(({ to, label, icon: Icon, badge, tourId }) => {
+                const active = isNavActive(location.pathname, to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    data-tour={tourId}
+                    className={`relative flex flex-col items-center gap-0 px-1.5 py-1 text-[9px] min-w-0 flex-1 rounded-xl transition-colors ${
+                      active
+                        ? 'text-primary font-semibold bg-primary/10'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate max-w-full leading-tight">{label}</span>
+                    {badge ? (
+                      <span className="absolute top-1 right-2 bg-primary text-primary-foreground text-[9px] font-bold min-w-[16px] h-4 rounded-md flex items-center justify-center px-1">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
       )}
     </div>
   );

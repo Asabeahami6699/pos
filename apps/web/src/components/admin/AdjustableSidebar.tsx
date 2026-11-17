@@ -25,6 +25,7 @@ import {
   Percent,
   Wallet,
   Palette,
+  CircleDollarSign,
 } from 'lucide-react';
 
 interface AdjustableSidebarProps {
@@ -99,6 +100,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
     { id: 'requests', label: 'Requests', icon: ClipboardList, group: 'operations' },
     { id: 'alerts', label: 'Stock Alerts', icon: AlertCircle, group: 'operations' },
     { id: 'analytics', label: 'Analytics', icon: BarChart3, group: 'insights' },
+    { id: 'profit', label: 'Profit', icon: CircleDollarSign, group: 'insights' },
     { id: 'price-history', label: 'Price History', icon: TrendingUp, group: 'insights' },
     { id: 'notifications', label: 'Notifications', icon: Bell, group: 'insights' },
     { id: 'guide', label: 'User Guide', icon: BookOpen, tourId: 'admin-guide', group: 'insights' },
