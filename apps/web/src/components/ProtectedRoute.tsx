@@ -1,5 +1,5 @@
 // src/components/ProtectedRoute.tsx
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { STAFF_AUTH_PATH } from '../lib/roleRedirect';
@@ -16,13 +16,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const authorizedRef = useRef(false);
 
   const resolveAccess = useCallback(
-    async (userId: string | undefined) => {
+    async (userId: string | undefined, options?: { showLoading?: boolean }) => {
+      const showLoading = options?.showLoading ?? false;
+
       if (!userId) {
+        authorizedRef.current = false;
         setAuthorized(false);
         setLoading(false);
         return;
+      }
+
+      // Only blank the tree on first gate check — never on token refresh / resume
+      if (showLoading || !authorizedRef.current) {
+        setLoading(true);
       }
 
       try {
@@ -33,12 +42,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           .single();
 
         if (error || !userData) {
+          authorizedRef.current = false;
           setAuthorized(false);
         } else {
-          setAuthorized(allowedRoles.includes(userData.role as UserRole));
+          const ok = allowedRoles.includes(userData.role as UserRole);
+          authorizedRef.current = ok;
+          setAuthorized(ok);
         }
       } catch (error) {
         console.error('Auth check error:', error);
+        authorizedRef.current = false;
         setAuthorized(false);
       } finally {
         setLoading(false);
@@ -55,15 +68,31 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         data: { session },
       } = await supabase.auth.getSession();
       if (!mounted) return;
-      await resolveAccess(session?.user?.id);
+      await resolveAccess(session?.user?.id, { showLoading: true });
     })();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      setLoading(true);
-      void resolveAccess(session?.user?.id);
+
+      // Leaving the app / tab and coming back often refreshes the JWT.
+      // Remounting children here wiped dashboard + add-product form state.
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        return;
+      }
+
+      if (event === 'SIGNED_OUT' || !session) {
+        authorizedRef.current = false;
+        setAuthorized(false);
+        setLoading(false);
+        return;
+      }
+
+      void resolveAccess(session.user.id, {
+        // Keep existing UI mounted while re-checking after SIGNED_IN etc.
+        showLoading: !authorizedRef.current,
+      });
     });
 
     return () => {

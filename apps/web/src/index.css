@@ -811,13 +811,34 @@
   align-items: stretch;
   border: 1.5px solid hsl(var(--border));
   border-radius: 0.5rem;
-  overflow: hidden;
+  overflow: visible;
   background: hsl(var(--card));
+  position: relative;
+  z-index: 1;
 }
 
-.marketplace-shell .jm-search-bar:focus-within {
+.marketplace-shell .jm-search-bar:focus-within,
+.marketplace-shell .jm-search-bar-active {
   border-color: hsl(var(--primary));
   box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+  z-index: 55;
+}
+
+.marketplace-shell .jm-search-bar-active {
+  flex: 1 1 auto;
+  max-width: none;
+}
+
+@media (max-width: 767px) {
+  .marketplace-shell .jm-search-bar-active {
+    border-radius: 0.75rem;
+  }
+}
+
+.marketplace-shell .jm-search-suggestions {
+  min-width: 100%;
+  width: max(100%, min(36rem, calc(100vw - 1.5rem)));
+  max-width: min(40rem, calc(100vw - 1.5rem));
 }
 
 .marketplace-shell .jm-search-bar .input-modern {

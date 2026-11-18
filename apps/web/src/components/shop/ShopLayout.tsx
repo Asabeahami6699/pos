@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -48,6 +48,10 @@ export const ShopLayout: React.FC = () => {
   const selectedCategory = useEcommerceCatalogStore((s) => s.selectedCategory);
   const setSelectedCategory = useEcommerceCatalogStore((s) => s.setSelectedCategory);
   const searchQuery = useEcommerceCatalogStore((s) => s.searchQuery);
+  const [searchActive, setSearchActive] = useState(false);
+  const handleSearchActive = useCallback((active: boolean) => {
+    setSearchActive(active);
+  }, []);
 
   useEffect(() => {
     initAnalytics();
@@ -103,16 +107,24 @@ export const ShopLayout: React.FC = () => {
   };
 
   return (
-    <div className="marketplace-shell page-shell flex flex-col min-h-[100dvh] max-md:h-[100dvh] max-md:overflow-hidden md:min-h-screen">
+    <div
+      className={`marketplace-shell page-shell flex flex-col min-h-[100dvh] max-md:h-[100dvh] md:min-h-screen ${
+        searchActive ? 'max-md:overflow-visible' : 'max-md:overflow-hidden'
+      }`}
+    >
       {!hideShopChrome && (
         <>
-          <header className="sticky top-0 z-30 mk-header safe-area-pt">
-            <div className="max-w-6xl mx-auto px-3 sm:px-4 pt-2.5 pb-2">
-              <div className="flex items-center gap-3">
+          <header
+            className={`sticky top-0 mk-header safe-area-pt ${
+              searchActive ? 'z-50' : 'z-30'
+            }`}
+          >
+            <div className="max-w-6xl mx-auto px-3 sm:px-4 pt-2.5 pb-2 relative">
+              <div className={`flex items-center gap-3 ${searchActive ? 'max-md:gap-2' : ''}`}>
                 <Link
                   to={shopRoutes.home}
                   data-tour="shop-home"
-                  className="shrink-0 leading-none"
+                  className={`shrink-0 leading-none ${searchActive ? 'max-md:hidden' : ''}`}
                 >
                   <span className="mk-display text-xl sm:text-2xl font-extrabold text-primary tracking-tight">
                     Marketplace
@@ -120,7 +132,13 @@ export const ShopLayout: React.FC = () => {
                   <span className="text-primary font-extrabold text-xl sm:text-2xl">.</span>
                 </Link>
 
-                <div className="jm-search-bar flex-1 min-w-0 max-w-3xl">
+                <div
+                  className={`jm-search-bar flex-1 min-w-0 transition-all duration-200 ${
+                    searchActive
+                      ? 'jm-search-bar-active max-w-none md:max-w-none'
+                      : 'max-w-3xl'
+                  }`}
+                >
                   <select
                     className="hidden sm:block shrink-0 bg-secondary/70 text-xs font-medium px-2.5 border-r border-border outline-none max-w-[8.5rem]"
                     value={selectedCategory ?? ''}
@@ -135,18 +153,27 @@ export const ShopLayout: React.FC = () => {
                     ))}
                   </select>
                   <div className="flex-1 min-w-0">
-                    <SearchAutocomplete className="[&_input]:rounded-none [&_input]:border-0 [&_input]:h-11 [&_input]:bg-transparent" />
+                    <SearchAutocomplete
+                      onActiveChange={handleSearchActive}
+                      className="[&_input]:rounded-none [&_input]:border-0 [&_input]:h-11 [&_input]:bg-transparent"
+                    />
                   </div>
                   <button
                     type="button"
                     onClick={submitSearch}
-                    className="jm-search-submit hidden sm:inline-flex items-center"
+                    className={`jm-search-submit items-center ${
+                      searchActive ? 'inline-flex' : 'hidden sm:inline-flex'
+                    }`}
                   >
                     Search
                   </button>
                 </div>
 
-                <div className="hidden md:flex items-center gap-1 ml-auto">
+                <div
+                  className={`hidden md:flex items-center gap-1 ml-auto ${
+                    searchActive ? 'md:opacity-40 md:pointer-events-none' : ''
+                  }`}
+                >
                   <Link
                     to={shopRoutes.account}
                     data-tour="shop-account"
@@ -200,7 +227,9 @@ export const ShopLayout: React.FC = () => {
 
                 <Link
                   to={shopRoutes.cart}
-                  className="md:hidden relative p-2 rounded-lg bg-secondary"
+                  className={`md:hidden relative p-2 rounded-lg bg-secondary ${
+                    searchActive ? 'hidden' : ''
+                  }`}
                   aria-label="Cart"
                 >
                   <ShoppingCart className="w-5 h-5" />

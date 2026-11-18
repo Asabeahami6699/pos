@@ -26,6 +26,9 @@ export interface Product {
   wholesale_price?: number;
   category?: string | null;
   image_url?: string | null;
+  description?: string | null;
+  is_online_listing?: boolean;
+  marketplace_listing?: unknown;
 }
 
 export interface Branch {
@@ -373,7 +376,7 @@ const handleEditProduct = useCallback(async (editingProduct: Product | null, cur
       });
     }
 
-    // Update the product
+    // Update the product (including marketplace list / unlist)
     const { error } = await supabase
       .from('products')
       .update({
@@ -383,6 +386,11 @@ const handleEditProduct = useCallback(async (editingProduct: Product | null, cur
         wholesale_price: editingProduct.wholesale_price,
         low_stock_threshold: editingProduct.low_stock_threshold,
         category: editingProduct.category ?? null,
+        description: editingProduct.description ?? null,
+        is_online_listing: Boolean(editingProduct.is_online_listing),
+        marketplace_listing: editingProduct.is_online_listing
+          ? editingProduct.marketplace_listing ?? null
+          : null,
       })
       .eq('id', editingProduct.id);
 

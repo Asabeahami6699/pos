@@ -19,7 +19,15 @@ import { UserGuideTab } from '../../components/admin/dashboard-tabs/UserGuideTab
 import { AnalyticsTab } from '../../components/admin/dashboard-tabs/AnalyticsTab';
 import { ProfitTab } from '../../components/admin/dashboard-tabs/ProfitTab';
 import { OnlineOrdersTab } from '../../components/admin/dashboard-tabs/OnlineOrdersTab';
+import { OnlineItemsTab } from '../../components/admin/dashboard-tabs/OnlineItemsTab';
 import { CustomerChatTab } from '../../components/admin/dashboard-tabs/CustomerChatTab';
+import {
+  OnlineListingFields,
+  EMPTY_ONLINE_LISTING,
+  onlineListingFormFromProduct,
+  type OnlineListingFormData,
+} from '../../components/admin/OnlineListingFields';
+import { buildMarketplaceListingPayload } from '../../types/marketplaceListing';
 import { AnalyticsRealtimeBridge } from '../../components/admin/AnalyticsRealtimeBridge';
 import { TenantContextBanner } from '../../components/admin/TenantContextBanner';
 import { EditStaffModal } from '../../components/admin/EditStaffModal';
@@ -37,6 +45,7 @@ import { ProcessRestockModal } from '../../components/admin/ProcessRestockModal'
 import BatchAllocationModal from '../../components/admin/BatchAllocationModal';
 import { AddWarehouseProductModal } from '../../components/admin/AddWarehouseProductModal';
 import { AddBranchStockModal } from '../../components/admin/AddBranchStockModal';
+import { ProductCategoryPicker } from '../../components/admin/ProductCategoryPicker';
 import { ProductMediaField, type MediaPreview, type ExistingMediaItem } from '../../components/admin/ProductMediaField';
 import {
   fetchProductMedia,
@@ -69,6 +78,7 @@ import { useStockAllocation } from '../../hooks/useStockAllocation';
 type ActiveTab =
   | 'overview'
   | 'inventory'
+  | 'online-items'
   | 'online-orders'
   | 'customer-chat'
   | 'warehouse'
@@ -129,6 +139,9 @@ const CompanyDashboard: React.FC = () => {
   });
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editOnlineListing, setEditOnlineListing] = useState<OnlineListingFormData>({
+    ...EMPTY_ONLINE_LISTING,
+  });
   const [editMediaFiles, setEditMediaFiles] = useState<MediaPreview[]>([]);
   const [editExistingMedia, setEditExistingMedia] = useState<ExistingMediaItem[]>([]);
   const [editCoverKey, setEditCoverKey] = useState<string | null>(null);
@@ -631,7 +644,28 @@ const CompanyDashboard: React.FC = () => {
   const handleEditProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProduct) {
-      const success = await handleEditProduct(editingProduct, userId);
+      const marketplaceListing = editOnlineListing.isOnlineListing
+        ? buildMarketplaceListingPayload({
+            variations: editOnlineListing.variations,
+            sizeGuide: editOnlineListing.sizeGuide,
+            keyHighlights: editOnlineListing.keyHighlights,
+            specifications: editOnlineListing.specifications,
+            keyFeatures: editOnlineListing.keyFeatures,
+            weightKg: editOnlineListing.weightKg,
+            productDetails: editOnlineListing.productDetails,
+          })
+        : null;
+
+      const productToSave: Product = {
+        ...editingProduct,
+        is_online_listing: editOnlineListing.isOnlineListing,
+        description: editOnlineListing.isOnlineListing
+          ? editOnlineListing.about.trim() || null
+          : editingProduct.description ?? null,
+        marketplace_listing: marketplaceListing,
+      };
+
+      const success = await handleEditProduct(productToSave, userId);
       if (success && companyId) {
         if (editMediaFiles.length > 0) {
           try {
@@ -659,6 +693,7 @@ const CompanyDashboard: React.FC = () => {
       if (success) {
         setIsEditProductModalOpen(false);
         setEditingProduct(null);
+        setEditOnlineListing({ ...EMPTY_ONLINE_LISTING });
         setEditMediaFiles([]);
         setEditExistingMedia([]);
         setEditCoverKey(null);
@@ -670,9 +705,11 @@ const CompanyDashboard: React.FC = () => {
     if (!editingProduct?.id) {
       setEditExistingMedia([]);
       setEditCoverKey(null);
+      setEditOnlineListing({ ...EMPTY_ONLINE_LISTING });
       return;
     }
 
+    setEditOnlineListing(onlineListingFormFromProduct(editingProduct));
     setEditCoverKey(editingProduct.image_url ?? null);
 
     fetchProductMedia(editingProduct.id).then((media) => {
@@ -844,6 +881,7 @@ const CompanyDashboard: React.FC = () => {
         companyName={companyName}
         notificationCount={notifications.filter((n) => !n.read).length}
         onlineOrderCount={pendingOnlineOrders.length}
+        onlineItemCount={products.filter((p) => p.is_online_listing).length}
         userName={userName}
         userRole={isActingAsTenant ? 'super_admin (tenant)' : userRole}
         inventoryModel={inventoryModel}
@@ -906,6 +944,25 @@ const CompanyDashboard: React.FC = () => {
               companyId={companyId}
               onOpenOnlineOrders={() => setActiveTab('online-orders')}
               inventoryModel={inventoryModel}
+            />
+          )}
+
+          {activeTab === 'online-items' && companyId && (
+            <OnlineItemsTab
+              companyId={companyId}
+              products={products}
+              loading={dataLoading}
+              onRefresh={async () => {
+                await fetchProducts(companyId);
+              }}
+              onProductsChanged={async () => {
+                await fetchProducts(companyId);
+              }}
+              onEditProduct={(product) => {
+                setEditingProduct(product);
+                setEditOnlineListing(onlineListingFormFromProduct(product));
+                setIsEditProductModalOpen(true);
+              }}
             />
           )}
 
@@ -1076,8 +1133,13 @@ const CompanyDashboard: React.FC = () => {
       {/* Edit Product Modal */}
       <Modal
         isOpen={isEditProductModalOpen}
-        onClose={() => setIsEditProductModalOpen(false)}
+        onClose={() => {
+          setIsEditProductModalOpen(false);
+          setEditingProduct(null);
+          setEditOnlineListing({ ...EMPTY_ONLINE_LISTING });
+        }}
         title="Edit Product Information"
+        size="lg"
       >
         {editingProduct && (
           <form onSubmit={handleEditProductSubmit} className="space-y-6">
@@ -1094,11 +1156,9 @@ const CompanyDashboard: React.FC = () => {
               onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
               required
             />
-            <Input
-              label="Category"
+            <ProductCategoryPicker
               value={editingProduct.category ?? ''}
-              onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })}
-              placeholder="e.g. Beverages"
+              onChange={(category) => setEditingProduct({ ...editingProduct, category })}
             />
             <Input
               label="SKU/Barcode"
@@ -1146,11 +1206,19 @@ const CompanyDashboard: React.FC = () => {
                 required
               />
             </div>
+            <OnlineListingFields
+              value={editOnlineListing}
+              onChange={setEditOnlineListing}
+            />
             <div className="flex justify-end space-x-3 pt-4">
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setIsEditProductModalOpen(false)}
+                onClick={() => {
+                  setIsEditProductModalOpen(false);
+                  setEditingProduct(null);
+                  setEditOnlineListing({ ...EMPTY_ONLINE_LISTING });
+                }}
               >
                 Cancel
               </Button>

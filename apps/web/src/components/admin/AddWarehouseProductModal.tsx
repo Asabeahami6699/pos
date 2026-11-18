@@ -25,6 +25,7 @@ import { buildMarketplaceListingPayload } from '../../types/marketplaceListing';
 import { BarcodeScannerInput } from '../BarcodeScannerInput';
 import { usePhysicalBarcodeScanner } from '../../hooks/useBarcodeScanner';
 import { toast } from 'sonner';
+import { ProductCategoryPicker } from './ProductCategoryPicker';
 
 interface AddWarehouseProductModalProps {
   isOpen: boolean;
@@ -631,8 +632,9 @@ export const AddWarehouseProductModal: React.FC<AddWarehouseProductModalProps> =
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (step === 3) void handleSubmit();
-          else goNext();
+          // Enter / accidental form events must never create the product.
+          // Only "Continue" advances; "Add to Warehouse" is an explicit button click.
+          if (step < 3) goNext();
         }}
         className="space-y-5"
       >
@@ -759,13 +761,12 @@ export const AddWarehouseProductModal: React.FC<AddWarehouseProductModalProps> =
                     required
                     placeholder="Enter product name"
                   />
-                  <Input
-                    label="Category"
+                  <ProductCategoryPicker
                     value={formData.category}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, category: e.target.value }))
+                    onChange={(category) =>
+                      setFormData((prev) => ({ ...prev, category }))
                     }
-                    placeholder="e.g. Beverages, Electronics"
+                    required
                   />
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
@@ -1101,7 +1102,12 @@ export const AddWarehouseProductModal: React.FC<AddWarehouseProductModalProps> =
                 <ChevronRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button type="submit" loading={loading} disabled={loading}>
+              <Button
+                type="button"
+                loading={loading}
+                disabled={loading}
+                onClick={() => void handleSubmit()}
+              >
                 {loading ? 'Adding...' : 'Add to Warehouse'}
               </Button>
             )}

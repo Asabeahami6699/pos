@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Globe, Ruler, X } from 'lucide-react';
 import { Input } from '../Input';
+import { parseMarketplaceListing } from '../../types/marketplaceListing';
 
 export interface OnlineListingFormData {
   isOnlineListing: boolean;
@@ -25,6 +26,30 @@ export const EMPTY_ONLINE_LISTING: OnlineListingFormData = {
   weightKg: '',
   productDetails: '',
 };
+
+/** Hydrate the online-listing form from a products row */
+export function onlineListingFormFromProduct(product: {
+  is_online_listing?: boolean | null;
+  description?: string | null;
+  marketplace_listing?: unknown;
+}): OnlineListingFormData {
+  const listing = parseMarketplaceListing(product.marketplace_listing);
+  return {
+    ...EMPTY_ONLINE_LISTING,
+    isOnlineListing: Boolean(product.is_online_listing),
+    about: product.description?.trim() || '',
+    variations: listing?.variations?.join(', ') || '',
+    sizeGuide: listing?.size_guide || '',
+    keyHighlights: listing?.key_highlights?.join('\n') || '',
+    specifications: listing?.specifications || '',
+    keyFeatures: listing?.key_features || '',
+    weightKg:
+      listing?.weight_kg != null && !Number.isNaN(listing.weight_kg)
+        ? String(listing.weight_kg)
+        : '',
+    productDetails: listing?.product_details || '',
+  };
+}
 
 interface OnlineListingFieldsProps {
   value: OnlineListingFormData;
@@ -93,6 +118,11 @@ export const OnlineListingFields: React.FC<OnlineListingFieldsProps> = ({ value,
               type="checkbox"
               checked={value.isOnlineListing}
               onChange={(e) => patch({ isOnlineListing: e.target.checked })}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                // Enter on a checkbox can also submit the parent <form> in some browsers
+                if (e.key === 'Enter') e.preventDefault();
+              }}
               className="rounded border-border text-primary focus:ring-primary"
             />
             <span className="text-sm font-semibold text-foreground">List as online marketplace product</span>

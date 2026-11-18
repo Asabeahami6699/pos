@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { shopApi } from '../../lib/shopApi';
+import { MASTER_CATEGORY_NAMES } from '../../lib/productCategories';
 import {
   getMarketplaceSessionId,
   useEcommerceCatalogStore,
@@ -48,7 +49,24 @@ export function useMarketplaceBootstrap() {
           shopApi.getCategories().catch(() => ({ data: [] as string[] })),
         ]);
         setMarketplaceProducts(productsRes.data ?? []);
-        setCategories(categoriesRes.data ?? []);
+        // Prefer master departments (ordered), then any extra labels from live listings
+        const fromApi = (categoriesRes.data ?? [])
+          .map((c) => c.trim())
+          .filter(Boolean);
+        const masterSet = new Set(MASTER_CATEGORY_NAMES.map((n) => n.toLowerCase()));
+        const extras = fromApi.filter((c) => {
+          const main = c.split('/')[0]?.trim().toLowerCase() ?? '';
+          return main && !masterSet.has(main) && !masterSet.has(c.toLowerCase());
+        });
+        const seenExtra = new Set<string>();
+        const uniqueExtras: string[] = [];
+        for (const e of extras) {
+          const key = e.toLowerCase();
+          if (seenExtra.has(key)) continue;
+          seenExtra.add(key);
+          uniqueExtras.push(e);
+        }
+        setCategories([...MASTER_CATEGORY_NAMES, ...uniqueExtras.sort((a, b) => a.localeCompare(b))]);
         setMarketplaceInitialized(true);
         if ((productsRes.data ?? []).length > 0) {
           emptyCatalogRetryRef.current = false;

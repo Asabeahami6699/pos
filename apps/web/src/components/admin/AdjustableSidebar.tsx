@@ -21,6 +21,7 @@ import {
   BarChart3,
   PieChart,
   ShoppingBag,
+  Globe,
   User,
   Percent,
   Wallet,
@@ -35,6 +36,7 @@ interface AdjustableSidebarProps {
   companyName?: string;
   notificationCount?: number;
   onlineOrderCount?: number;
+  onlineItemCount?: number;
   userName?: string;
   userRole?: string;
   inventoryModel?: 'warehouse' | 'branch_only';
@@ -60,6 +62,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
   companyName = 'Company Admin',
   notificationCount = 0,
   onlineOrderCount = 0,
+  onlineItemCount = 0,
   inventoryModel = 'warehouse',
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -95,6 +98,7 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
       ? [{ id: 'warehouse', label: 'Warehouse', icon: Warehouse, tourId: 'admin-warehouse', group: 'setup' as const }]
       : []),
     { id: 'inventory', label: 'Inventory', icon: Package, tourId: 'admin-inventory', group: 'setup' },
+    { id: 'online-items', label: 'Online Items', icon: Globe, group: 'operations' },
     { id: 'online-orders', label: 'Online Orders', icon: ShoppingBag, group: 'operations' },
     { id: 'customer-chat', label: 'Customer Chat', icon: MessageCircle, group: 'operations' },
     { id: 'requests', label: 'Requests', icon: ClipboardList, group: 'operations' },
@@ -424,6 +428,11 @@ export const AdjustableSidebar: React.FC<AdjustableSidebarProps> = ({
                           {!isCollapsed && item.id === 'notifications' && notificationCount > 0 && (
                             <span className="ml-auto bg-destructive/10 text-destructive text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
                               {notificationCount > 99 ? '99+' : notificationCount}
+                            </span>
+                          )}
+                          {!isCollapsed && item.id === 'online-items' && onlineItemCount > 0 && (
+                            <span className="ml-auto bg-sky-500/15 text-sky-700 dark:text-sky-400 text-xs px-2 py-0.5 rounded-full min-w-6 text-center">
+                              {onlineItemCount > 99 ? '99+' : onlineItemCount}
                             </span>
                           )}
                           {!isCollapsed && item.id === 'online-orders' && onlineOrderCount > 0 && (
